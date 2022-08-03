@@ -1,16 +1,12 @@
-"""CellPrototype children for common lattice types
--square lattice
--cubic lattice
--hex lattice
--tri lattice
-"""
-from .Cell import Cell
+"""CellPrototype children for Square cells"""
+from .cell import Cell
 import numpy as np
 
 """Square Lattice Cell"""
 class Square(Cell):
     dimensions = 2
     n_parameters= 2
+    connectivity_types = {'edge','vertex'}
 
     def __init__(self,coord: np.array) -> None:
         """A square cell which can be considered as the prototype of the module in the module graph

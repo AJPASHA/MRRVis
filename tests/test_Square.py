@@ -1,5 +1,6 @@
 import pytest
-from .Square import Square
+# from mrrvis import mrrvis
+from mrrvis.cells.square import Square
 import numpy as np
 
 def test_init_valid():
@@ -8,7 +9,8 @@ def test_init_valid():
     assert cell.rotation_angle == np.pi/2
     assert cell.n_parameters == 2
     assert cell.dimensions == 2
-    assert set(Square([0,0]).dir_adjacents()) == {'N','S','E','W'}
+    assert cell.connectivity_types == {'vertex','edge'}
+    assert set(cell.dir_adjacents(connectivity='edge')) == {'N','S','E','W'}
 
 def test_invalid_init_float():
     with pytest.raises(ValueError):
@@ -35,25 +37,25 @@ def test_valid_coord():
 def test_neighbors_std():
     """test that neighbors are correct for a normal input"""
     cell = Square(np.array([3, 1]))
-    neighbors = cell.adjacents()
-    print (neighbors)
-    expected_neighbors = {'N': np.array([3, 2]), 'S': np.array([3, 0]), 'E': np.array([4, 1]), 'W': np.array([2,1]),
+    adjacents = cell.adjacents()
+    print (adjacents)
+    expected_adjacents = {'N': np.array([3, 2]), 'S': np.array([3, 0]), 'E': np.array([4, 1]), 'W': np.array([2,1]),
                             'NE': np.array([4,2]), 'NW': np.array([2,2]), 'SE': np.array([4,0]), 'SW': np.array([2,0])}
-    for key, value in expected_neighbors.items():
-        assert np.all(value == neighbors[key])
+    for key, value in expected_adjacents.items():
+        assert np.all(value == adjacents[key])
 
 def test_neighbors_strict():
-    """test that strict operation works"""
+    """test that strict adjacents works"""
     cell = Square(np.array([0, 0]))
-    neighbors = cell.adjacents(connectivity='vertex')
-    expected_neighbors = {'N': np.array([0, 1]), 'S': np.array([0, -1]), 'E': np.array([1, 0]), 'W': np.array([-1, 0])}
-    for key, value in expected_neighbors.items():
-        assert np.all(value == neighbors[key])
+    adjacents = cell.adjacents(connectivity='vertex')
+    expected_adjacents = {'N': np.array([0, 1]), 'S': np.array([0, -1]), 'E': np.array([1, 0]), 'W': np.array([-1, 0])}
+    for key, value in expected_adjacents.items():
+        assert np.all(value == adjacents[key])
 
 def test_neigbors_negative():
     """test that negative coordinates are handled correctly"""
     cell = Square(np.array([-1, -1]))
-    neighbors = cell.adjacents('vertex')
-    expected_neighbors = {'N': np.array([-1, 0]), 'S': np.array([-1, -2]), 'E': np.array([0, -1]), 'W': np.array([-2, -1])}
-    for key, value in expected_neighbors.items():
-        assert np.all(value == neighbors[key])
+    adjacents = cell.adjacents('vertex')
+    expected_adjacents = {'N': np.array([-1, 0]), 'S': np.array([-1, -2]), 'E': np.array([0, -1]), 'W': np.array([-2, -1])}
+    for key, value in expected_adjacents.items():
+        assert np.all(value == adjacents[key])

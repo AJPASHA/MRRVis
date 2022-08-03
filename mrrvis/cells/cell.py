@@ -14,7 +14,11 @@ class Cell(ABC):
         
         self.coord = coord
     
-    
+    @property
+    @abstractmethod
+    def connectivity_types(self) -> set:
+        """Return a list of the connectivity types supported by the cell"""
+        pass
 
 
     @property

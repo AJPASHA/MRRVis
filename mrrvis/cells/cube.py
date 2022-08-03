@@ -1,4 +1,4 @@
-from  Cell import Cell
+from  .cell import Cell
 import numpy as np
 """Cube Lattice Cell"""
 class Cube(Cell):
