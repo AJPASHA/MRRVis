@@ -97,6 +97,7 @@ class ModuleGraph:
     
     def is_connected(self, other:np.array=None):
         """Check if the graph is connected"""
+        #This could potentially be reimplemented/have an alternative static option, which would be will_connect(graph1, graph2s)
         if other is not None:
             if len(other.shape) == 1:
                 other = np.array([other])
