@@ -1,6 +1,6 @@
 import pytest
 # from mrrvis import mrrvis
-from mrrvis.cells.square import Square
+from mrrvis.cells import Square
 import numpy as np
 
 def test_init_valid():

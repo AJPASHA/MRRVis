@@ -103,3 +103,5 @@ class CellReal(Cell):
         """static method for checking collision between two coordinates, useful for defining if a cell should be allowed in the graph"""
         pass
 
+
+        
