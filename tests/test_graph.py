@@ -42,7 +42,7 @@ def test_connected_true():
     graph = ModuleGraph(Square, vertices=np.array([[0,0],[0,1],[0,2],[1,2]]))
     assert graph.is_connected() == True
 
-
+# need to test more edge cases
 def test_connected_vertex():
     graph = ModuleGraph(Square, vertices=np.array([[0,0],[1,1]]), connect_type='vertex')
     assert graph.is_connected() == True
@@ -56,4 +56,9 @@ def test_add_vertex():
     graph = ModuleGraph(Square)
     graph.add_verts([[0,1],[1,1]])
     assert np.all(graph.vertices == np.array([[0,1],[1,1]]))
+
+def test_rm_vertex():
+    graph = ModuleGraph(Square, vertices=np.array([[0,0],[0,1],[0,2],[1,2]]))
+    graph.remove_verts([0,0])
+    assert np.all(graph.vertices == np.array([[0,1],[0,2],[1,2]]))
 

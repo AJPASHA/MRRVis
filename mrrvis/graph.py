@@ -72,6 +72,7 @@ class ModuleGraph:
     
     def remove_verts(self, coords: np.array, check_connectivity=True) -> None:
         """Remove vertices from the graph"""
+        coords = np.array([coords])
         #1. check that the coordinates are of the correct shape
         if coords.shape[-1] != self.Cell.n_parameters:
             raise ValueError(f"Incorrect input shape, expected tuples of length {self.Cell.n_parameters}")
@@ -84,12 +85,14 @@ class ModuleGraph:
                 return None
         #There is probably a way to vectorise this for enhanced performance
         for coord in coords:
-            self.vertices = np.delete(self.vertices, self.get_index(coord), axis=0)
+            self.vertices = np.delete(self.vertices, self.get_index(coord),axis=0)
                 
     
     def get_index(self, vertex):
         """get the index of a vertex in the graph"""
-        return int(np.where(np.all(self.vertices==vertex, axis=1))[0])
+        #This solution can be improved to handle multiple vertices in a single call, using a vectorised method
+        
+        return int(np.where(np.all(self.vertices==vertex, axis=1))[0][0])
 
     
     def is_connected(self, other:np.array=None):
