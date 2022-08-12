@@ -130,7 +130,7 @@ class ModuleGraph:
     def isomorphic(self, other) -> bool:
         """Check if two graphs are isomorphic 
         accessible as __eq__
-        currently doesn't work in 3D, hex or tri
+        currently doesn't work in 3D
 
         """
         self_verts = self.vertices
@@ -145,15 +145,23 @@ class ModuleGraph:
             return False
 
         rotation_angle = self.Cell.rotation_angle
-
         rotations_per_axis = int((2*np.pi)/rotation_angle)
 
-
         if self.Cell == Square:
-            #1. center self graph on origin from most westerly, then southerly vertex
-            self_min = min_coord(self_verts)
-            self_verts = self_verts - self_min
-            rotator = rotation_2D(rotation_angle).astype(int)
+            rotator = rotation_2D(rotation_angle)
+        elif self.Cell == Hex or self.Cell==Tri:
+            rotator = rotation_3Dx(rotation_angle)+rotation_3Dy(rotation_angle)+rotation_3Dz(rotation_angle)
+        elif self.Cell ==Cube:
+            rotatorx = rotation_3Dx(rotation_angle)
+            rotatory = rotation_3Dy(rotation_angle)
+            rotatorz = rotation_3Dz(rotation_angle)
+
+        #1. center self graph on origin from most westerly, then southerly, then downward vertex
+        self_min = min_coord(self_verts)
+        self_verts = self_verts - self_min
+
+        if self.Cell.dimensions==2:
+            
             for _ in range(rotations_per_axis):
 
                 #2. identify the 'smallest' vertex in other graph and translate to origin
@@ -170,11 +178,7 @@ class ModuleGraph:
 
             return False
 
-        elif self.Cell == Hex:
-            raise NotImplementedError("isomorphic check for hex not implemented")
-        elif self.Cell == Tri:
-            raise NotImplementedError("isomorphic check for tri not implemented")
-        elif self.Cell == Cube:
+        else:
             raise NotImplementedError("isomorphic check for cube not implemented")
 
 
