@@ -14,42 +14,57 @@ class Cell(ABC):
         
         self.coord = coord
     
+    @classmethod
+    @abstractmethod
+    def adjacent_transformations(cls,connectivity, coord=None) -> dict:
+        """Returns a dictionary of transformations for this cell type
+        connectivity: if true, only returns facet (edge) connected neighbors, 
+        otherwise will give both facet and edge connected neighbors
+        """
+        pass
+    
+    @classmethod
     @property
     @abstractmethod
     def connectivity_types(self) -> set:
-        """Return a list of the connectivity types supported by the cell"""
+        """a list of the connectivity types supported by the cell"""
         pass
 
-
+    @classmethod
     @property
     @abstractmethod
-    def n_parameters(self) -> int:
+    def n_parameters(cls) -> int:
         """The expected number of parameters"""
         pass
 
+    @classmethod
     @property
     @abstractmethod
-    def dimensions(self) -> int:
+    def dimensions(cls) -> int:
         """The number of dimensions of the cell."""
         pass
+
 
     @property
     def rotation_angle(self) -> float:
         """The rotation angle of the cell.
         valid for all equilateral lattices.
-        This may have to be overridden in the case that a more complex (e.g. brevais) lattice is used
         """
         if self.dimensions == 2:
             connectivity = 'edge'
         if self.dimensions ==3:
             connectivity = 'face'
-        
-        return np.pi/(len(self.adjacents(connectivity))/self.dimensions)
+        #try to refactor this if possible, though it isn't that important
+        return np.pi/(len(self.adjacent_transformations(connectivity,self.coord))/self.dimensions)
 
-    @abstractmethod
-    def adjacents(self, connectivity: str) -> dict:
+    # @abstractmethod
+    def adjacents(self, connectivity: str = 'vertex') -> dict:
         """the neighbors of the cell"""
-        pass
+        print(connectivity)
+        base_adjacents = self.adjacent_transformations(connectivity, self.coord)
+
+        # return a dictionary of the neighbors for the input coordinate
+        return {key: self.coord+value for key, value in base_adjacents.items()}
 
     @classmethod
     @abstractmethod
@@ -62,18 +77,18 @@ class Cell(ABC):
             return False
 
 
-    def __getitem__(self,key):
+    def __getitem__(self,key:str):
         """Obtain an item from the neighbor dictionary by cardinal direction"""
-        key = str(key)
+        # key = str(key)
         try:
             return self.adjacents()[key.upper()]
         except KeyError as Kerror:
             print('key should be a cardinal direction')
             raise Kerror
 
-
-    def dir_adjacents(self,connectivity = 'edge'):
-        return self.adjacents(connectivity).keys()
+    @classmethod
+    def compass(cls,connectivity = 'edge'):
+        return cls.adjacent_transformations(connectivity).keys()
 
     def __repr__(self) -> str:
         return f"{self.CellType}module @ {self.coord}"

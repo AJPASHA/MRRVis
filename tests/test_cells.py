@@ -2,7 +2,9 @@ import pytest
 # from mrrvis import mrrvis
 from mrrvis.cells import Square
 import numpy as np
+from mrrvis.cell import Cell
 
+"""Square cell test cases"""
 def test_init_valid():
     cell = Square(np.array([2, 1]))
     # assert np.all([cell.coord, np.array([2, 1])])
@@ -10,7 +12,7 @@ def test_init_valid():
     assert cell.n_parameters == 2
     assert cell.dimensions == 2
     assert cell.connectivity_types == {'vertex','edge'}
-    assert set(cell.dir_adjacents(connectivity='edge')) == {'N','S','E','W'}
+    assert set(cell.compass(connectivity='edge')) == {'N','S','E','W'}
 
 def test_invalid_init_float():
     with pytest.raises(ValueError):
@@ -18,6 +20,19 @@ def test_invalid_init_float():
 def test_invalid_init_len():
     with pytest.raises(ValueError):
         Square([1,1,1])
+
+def test_invalid_subclass():
+    """test that failure to implement abstract class methods raises error"""
+    with pytest.raises(TypeError):
+        class InvalidCell(Cell):
+            def __init__(self, coord: np.array) -> None:
+                super().__init__(coord)
+            def adjacents(self, connectivity: str) -> dict:
+                pass
+            def valid_coord(self, coord: np.array) -> bool:
+                pass
+        InvalidCell(np.array([0,0]))
+
 
 def test___getitem__():
     cell = Square(np.array([2,1]))
@@ -59,3 +74,7 @@ def test_neigbors_negative():
     expected_adjacents = {'N': np.array([-1, 0]), 'S': np.array([-1, -2]), 'E': np.array([0, -1]), 'W': np.array([-2, -1])}
     for key, value in expected_adjacents.items():
         assert np.all(value == adjacents[key])
+
+#tri weak adjacents
+# 'NE': np.array([1,1,-1]), 'NW': np.array([-1,1,1]), 'S': np.array([1,-1,1])
+# 'SW': np.array([-1,-1,1]), 'SE': np.array([1,-1,-1]), 'N': np.array([-1,1,-1])
