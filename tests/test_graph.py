@@ -1,9 +1,12 @@
 from mrrvis.cell import Cell
 from mrrvis.graph import ModuleGraph
-from mrrvis.graph_operations import add_vertices, remove_vertices, move
+from mrrvis.graph_operations import add_vertices, remove_vertices
 from mrrvis.cells import Square
 import numpy as np
 import pytest
+
+rotation_matrix_2D =lambda r: np.array([[np.cos(r), -np.sin(r)], 
+                                        [np.sin(r), np.cos(r)]])
 
 
 def test_init():
@@ -25,6 +28,12 @@ def test_init_invalid_connectivity_type():
     """Test the creation of a module graph object with an invalid connectivity"""
     with pytest.raises(ValueError):
         ModuleGraph(Square, connect_type='invalid')
+
+def test_init_negative_vertices():
+    vertices = np.array([[0, 0], [0, -1]])
+    graph = ModuleGraph(Square, vertices)
+    print(graph.vertices)
+    assert np.all(graph.vertices == vertices)
 
 
 def test_edges_single_valid():
@@ -112,3 +121,25 @@ def test_disconnect_rm():
         graph = ModuleGraph(Square, np.array([[0, 0], [1, 0], [1, 1]]))
         graph = remove_vertices(graph, np.array([[1, 0]]))
         assert np.all(graph.vertices == np.array([[0, 0], [1, 0], [1, 1]]))
+
+
+def test_equals():
+    graph1 = ModuleGraph(Square, np.array([[0, 0], [1, 0], [1, 1]]))
+    graph2 = ModuleGraph(Square, np.array([[3, 3], [4, 4], [4, 3]]))
+    assert graph1 == graph2
+
+def test_equals_rotate_1():
+    graph1 = ModuleGraph(Square, np.array([[1,1], [1,2], [2,1]]))
+
+    graph2 = ModuleGraph(Square, np.array([[-1,-1],[-1,-2],[-2,-1]]))
+    assert graph1 == graph2
+
+def test_equals_rotate_2():
+    """a slightly more complex example"""
+    graph1 = ModuleGraph(Square, np.array([[1,2],[2,2],[2,3],[3,3],[3,2],[3,1]]))
+    rotation = rotation_matrix_2D(np.pi/2).astype(int)
+    g2_verts = (rotation.dot(graph1.V.T).T) + np.array([[27,15]])
+
+
+    graph2 = ModuleGraph(Square, g2_verts)
+    assert graph1 == graph2

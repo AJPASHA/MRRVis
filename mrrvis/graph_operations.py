@@ -11,7 +11,7 @@ contains methods for module graph manipulation
 """
 
 
-from mrrvis.graph import ModuleGraph
+from mrrvis.graph import ModuleGraph, equals, connected, get_index
 # from mrrvis.cells import Square, Hex, Tri, Cube
 from mrrvis.move import Move
 import numpy as np
@@ -132,29 +132,4 @@ def move(Move:Move, module: np.array, direction: str, graph: ModuleGraph, check_
     if move() is None:
         return graph
 
-def equals(graph1: ModuleGraph, graph2: ModuleGraph)->bool:
-    """Check if two graphs are equal
-    """
-    return graph1 == graph2
 
-def connected(graph: ModuleGraph):
-    """Checks if the graph is connected
-    alias of graph.is_connected()
-    """
-    return graph.is_connected()
-
-
-
-def get_index(vertex:np.array, vertices:np.array)->int:
-        """get the index of a vertex in a set of vertices
-        
-        parameters:
-        :param vertex: the vertex to find the index of
-        :param vertices: the set of vertices to search
-        :return: the index of the vertex in the set of vertices
-        """
-        # This solution could be improved to handle multiple vertices in a single call, using a vectorised method
-        try:
-            return int(np.where(np.all(vertices == vertex, axis=1))[0][0])
-        except IndexError:
-            return None

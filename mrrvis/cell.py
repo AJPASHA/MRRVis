@@ -11,16 +11,14 @@ class Cell(ABC):
         #test that input coordinate is valid
         if not(self.valid_coord(coord)):
             raise ValueError('Coordinate must exist on the lattice plane')
+
         
-        self.coord = coord
+        self.coord = coord.astype(int)
     
     @classmethod
     @abstractmethod
     def adjacent_transformations(cls,connectivity, coord=None) -> dict:
-        """Returns a dictionary of transformations for this cell type
-        connectivity: if true, only returns facet (edge) connected neighbors, 
-        otherwise will give both facet and edge connected neighbors
-        """
+        """Returns a dictionary of transformations for this cell type"""
         pass
     
     @classmethod
@@ -44,18 +42,17 @@ class Cell(ABC):
         """The number of dimensions of the cell."""
         pass
 
-
+    @classmethod
     @property
-    def rotation_angle(self) -> float:
+    def rotation_angle(cls) -> float:
         """The rotation angle of the cell.
         valid for all equilateral lattices.
         """
-        if self.dimensions == 2:
+        if cls.dimensions == 2:
             connectivity = 'edge'
-        if self.dimensions ==3:
+        if cls.dimensions ==3:
             connectivity = 'face'
-        #try to refactor this if possible, though it isn't that important
-        return np.pi/(len(self.adjacent_transformations(connectivity,self.coord))/self.dimensions)
+        return np.pi/(len(cls.adjacent_transformations(connectivity,[0,0]))/cls.dimensions)
 
     # @abstractmethod
     def adjacents(self, connectivity: str = 'vertex') -> dict:
@@ -75,6 +72,11 @@ class Cell(ABC):
         #test shape of input
         if coord.shape[0] != cls.n_parameters:
             return False
+        #test that input is int
+        for param in coord:
+            if int(param)-param !=0:
+                return False
+            
 
 
     def __getitem__(self,key:str):
@@ -100,6 +102,7 @@ class Cell(ABC):
 class CellReal(Cell):
     def __init__(self, coord: np.array) -> None:
         """abstract prototype for real valued cell representations"""
+        raise NotImplementedError('CellReal is not implemented yet')
         super().__init__(coord)
     
     @abstractmethod

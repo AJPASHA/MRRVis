@@ -44,12 +44,6 @@ class Square(Cell):
         """all discrete cartesian coordinates are valid"""
         if super().valid_coord(coord) == False:
             return False
-
-        # check that the parameters are all ints (or floats which are equal to ints)
-        for param in coord:
-            if int(param)-param != 0:
-                return False
-
         return True
 
 """Triangular Lattice Cell"""
@@ -112,10 +106,6 @@ class Tri(Cell):
         if super().valid_coord(coord) == False:
             return False
 
-        # check that the parameters are all ints
-        for param in coord:
-            if int(param)-param != 0:
-                return False
 
         # check that the parameters of the coord sum to 0 or 1:
         x,y,z = coord
@@ -153,10 +143,6 @@ class Hex(Cell):
         if super().valid_coord(coord) == False:
             return False
 
-        # check that the parameters are all ints
-        for param in coord:
-            if int(param)-param != 0:
-                return False
 
         # check that the parameters of the coord sum to 0 or 1:
         x,y,z = coord
@@ -182,10 +168,7 @@ class Cube(Cell):
         if super().valid_coord(coord) == False:
             return False
 
-        # check that the parameters are all ints (or floats which are equal to ints)
-        for param in coord:
-            if int(param)-param != 0:
-                return False
+
 
         return True
 
