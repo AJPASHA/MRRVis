@@ -54,10 +54,10 @@ class Cell(ABC):
             connectivity = 'face'
         return np.pi/(len(cls.adjacent_transformations(connectivity,[0,0]))/cls.dimensions)
 
-    # @abstractmethod
+
     def adjacents(self, connectivity: str = 'vertex') -> dict:
         """the neighbors of the cell"""
-        print(connectivity)
+
         base_adjacents = self.adjacent_transformations(connectivity, self.coord)
 
         # return a dictionary of the neighbors for the input coordinate
@@ -84,9 +84,8 @@ class Cell(ABC):
         # key = str(key)
         try:
             return self.adjacents()[key.upper()]
-        except KeyError as Kerror:
-            print('key should be a cardinal direction')
-            raise Kerror
+        except KeyError as e:
+            raise e
 
     @classmethod
     def compass(cls,connectivity = 'edge'):

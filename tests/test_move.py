@@ -1,21 +1,39 @@
-from cv2 import rotate
+
 import pytest
 import numpy as np
+from mrrvis import Move, Square, ConfigurationGraph
+from mrrvis.move import Transformation
+from mrrvis.movesets.square import slide
+
+
+def test_init():
+    """
+    Test the initialization of a move, in this case 'slide' from the default square moveset
+    """
+    graph = ConfigurationGraph(Square, np.array([[0, 0], [1, 0], [0, 1]]))
+    move = slide(graph, 2, 'E')
+
+    transformation_0 = move.transformations[0]
+    assert transformation_0.location == 2
+    assert np.all(transformation_0.translation == [1,0])
+    #check that collisions are generating correctly
+    case0 = transformation_0.collisions[0]
+    case1 = transformation_0.collisions[1]
+    assert np.all(case0.empty == np.array([1,0]))
+    assert np.all(case0.empty == case1.empty)
+    assert np.all(case0.full == np.array([[0,-1],[1,-1]]))
+    assert np.all(case1.full == np.array([[0,1],[1,1]]))
+
+
+    assert move() is not None
+
+
+
+
+
+
+    # assert move() == ConfigurationGraph(Square, np.array([[0, 0], [1, 1], [0, 1]]))
+
+    
 # from mrrvis.graph import ModuleGraph
 
-
-# def test_rotate_path():
-#     compass = ['N', 'E', 'S', 'W']
-#     base_path = ['N', 'E', 'S']
-#     assert rotate_path(compass, base_path, 'E') == ['E', 'S', 'W']
-#     assert rotate_path(compass, base_path, 'S') == ['S', 'W', 'N']
-#     assert rotate_path(compass, base_path, 'W') == ['W', 'N', 'E']
-#     assert rotate_path(compass, base_path, 'N') == ['N', 'E', 'S']
-
-#     assert rotate_path(compass, base_path, 'E', False) == [1,2,3]
-#     assert rotate_path(compass, base_path, 'S', False) == [2,3,0]
-
-#     base_path = [0,3,3]
-#     assert rotate_path(compass, base_path, 'N') == ['N','W','W']
-
-# def test_

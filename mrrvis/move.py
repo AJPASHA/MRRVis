@@ -3,138 +3,220 @@ The logic for moving a module within the configuration
 """
 
 from abc import ABC, abstractmethod
-from typing import Union
+import copy
+from gettext import translation
+from typing import List, NamedTuple, Tuple, Union
 import numpy as np
-from mrrvis.graph import ModuleGraph
+from mrrvis import Cell, ConfigurationGraph, connected
+from mrrvis.geometry_utils import rotate
+import warnings
+
+
+class CollisionCheck(NamedTuple):
+    empty: np.ndarray
+    full: np.ndarray
+
+    def rotate(self, turns, base_angle=np.pi/2, around=None, axis=None)-> 'CollisionCheck':
+        return CollisionCheck(
+            rotate(self.empty,turns,base_angle, around, axis), 
+            rotate(self.full, turns, base_angle, around, axis)
+        )
+
+
+
+
+class Transformation(NamedTuple):
+    location: int
+    translation: np.ndarray
+    collisions: List[CollisionCheck]
+
+
+class Checkwrapper:
+    """A variation on the Failure Monad design pattern
+    which allows us to pipeline checks on the feasibility of a configuration
+
+    a useful explanation is given at
+    https://medium.com/swlh/monads-in-python-e3c9592285d6
+    """
+
+    def __init__(self, value: ConfigurationGraph) -> None:
+        self.value = value
+
+    def get(self):
+        return self.value
+
+    def bind(self, f: callable) -> 'Checkwrapper':
+        """Bind any function that takes a ConfigurationGraph and returns a boolean"""
+        if self.get() is None:
+            return Checkwrapper(None)
+
+        with warnings.catch_warnings():
+            #if the check fails, we want to ignore any warnings it may throw
+            #this is because we are checking the feasibility of the configuration
+            warnings.simplefilter("ignore")
+
+            if f(self.value):
+                return self
+            else:
+                return Checkwrapper(None)
+
 
 
 class Move(ABC):
-    """
-    Abstract class for moving a module within the configuration
-    """
-    
-    def __init__(self, module_id: Union[int,np.array], direction:str, module_graph:ModuleGraph):
-        self.graph = module_graph
-        self.Cell = module_graph.Cell
-        self.agent= module_id
-        self.path = self.rotate_path(direction)
+    Transformation = Transformation
+    Collision = CollisionCheck
 
-    @classmethod
-    @property
-    @abstractmethod
-    def compass(self):
-        """A move needs a list of compass directions, arranged in clockwise order from the north"""
-        pass
+    def __init__(self, graph: ConfigurationGraph, module: Union[int, np.ndarray], direction, additional_checks=[], check_connectivity=True):
+        """an object which generates a move transformation with context
+        if the move would be invalid then the move is said to not exist.
 
-    @classmethod
-    @property
-    @abstractmethod
-    def base_path(self):
-        """A move needs a list of single space translations as compass directions or compass indices
-        mapping the collision boundary for a move in the 0th direction
+        subclasses must implement the following:
+        :param: compass: list
+            a compass explaining the directions that a move can be carried out
+        :method: _generate_transforms(graph, module_id, direction) -> list[Transformation,...]
+            a method which generates a list of named transformation tuples 
+        :method: _generate_collisions(direction, transformations)-> list[collision,...]
+            a method which generates a list of named collision tuples
         """
-        pass
+        # check module id is valid
+        if type(module) == int:
+            try:
+                graph[module]
+            except IndexError:
+                raise IndexError(f"index {module} is out of range")
+        elif type(module) == np.array:
+            try:
+                module = graph.get_index(module)
+            except UserWarning:
+                raise ValueError(f"{module} is not in the graph")
 
-    @classmethod
-    def rotate_path(cls, direction, ret_cardinal = True):
-        """rotate the translation path 
-        
-        :param compass: list of cardinal directions in order
-        :param base_path: list of compass directions to translate
-        :param direction: direction of the translation
-        :param ret_cardinal: return the resulting list of cardinal directions instead of the indices
-        :return: list of cardinal directions or compass indices
 
-        """
-        direction = cls.compass.index(direction)
+        self.transformations = self.generate_transforms(
+            graph, module, direction)
 
-        if type(base_path[0]) == str:
-            base_path = [cls.compass.index(i) for i in base_path]
+        if self.no_collision(graph, self.transformations):
+            new_graph = self.transform(graph, self.transformations)
 
-        path = [(trans+direction )% len(cls.compass) for trans in base_path]
+            self.wrapped_value = Checkwrapper(new_graph)
 
-        if ret_cardinal:
-            return [cls.compass[i] for i in path]
         else:
-            return path
+            self.wrapped_value = Checkwrapper(None)
 
-    @property
-    def translation(self):
-        cell_translations = self.Cell.adjacent_transformations(self.graph.connect_type)
-
-
-
-
-
-
-# class Move:
-#     def __init__(self, graph: ModuleGraph, vertex : Union[np.array, int], path: np.array):
-#         """if the move is valid then this object will have a value which will be the same as a 
-#         built in checks:
-#         1. check that the module exists
-#         2. check path collision
-#         3. check that new graph would satisfy connectivity
-#         """
-#         self.value = (self
-#             .bind(check_vertex)
-#             .bind(check_path)
-#             .bind(check_connectivity)
-#             )
-
-
+        print('value: ' ,self.wrapped_value.get())
         
 
+        #perform the checks
+        if check_connectivity:
+            self.wrapped_value = self.wrapped_value.bind(connected)
+            print('value: ' ,self.wrapped_value.get())
 
-#         self.path = path
-#         gt = graph
-
-#         self.value = Gt_1
-
-
-#     @classmethod
-#     def unit(cls, value):
-#         return cls(value)
+        #add additional checks to the checklist
+        self.checklist+= additional_checks
+ 
+        # perform the checks on the wrapped monad, if it's value survives the checks then the move is valid
+        for check in self.checklist:
+            self.wrapped_value = self.wrapped_value.bind(check)
 
 
-#     def bind(self, func):
-#         """returns value or None if the value is not bound"""
-#         if self.value is None:
-#             return None
-#         else:
-#             return func(self)
+    @classmethod
+    def no_collision(cls,graph: ConfigurationGraph, transformations: List[List[Transformation]], collision_rule='or') -> bool:
+        """
+        :param graph: a graph object
+        :param collisions: a list of named collision tuples
+        :return: a boolean indicating whether the transformations collide with the graph
 
-#     def __call__(self) -> Any:
-#         return self.unit()
+        collision_rule can be 'and' or 'or' or 'xor'
+
+        'or' is the default, but for rotating moves, 'xor' is usually required, because the module will have to rotate
+        around something else to get to the target location
+        """
+        collision_rule = cls.collision_rule
+
+        def evaluate_case(module_id:int,graph:ConfigurationGraph, case: CollisionCheck) -> bool:
+            transform_location = graph.vertices[module_id]
+            # print(transform_location)
+            
+            empty = transform_location + case.empty
+            full = transform_location + case.full
+            # we need to make sure that the empty and full arrays are 2D arrays by adding a dimension if their row length is 1
+            if len(empty.shape) == 1:
+                empty = np.array([empty])
+            if len(full.shape) == 1:
+                full = np.array([full])
+            for vertex in empty:
+                if vertex.tolist() in graph.vertices.tolist():
+                    return False
+            for vertex in full:
+                if vertex.tolist() not in graph.vertices.tolist():
+                    return False
+            return True
+
+        collision_rules = {
+            'or': lambda cases: any(cases),
+            'xor': lambda cases: sum(cases) == 1,
+            'and': lambda cases: all(cases)
+        }
+        if collision_rule not in list(collision_rules.keys()):
+            raise ValueError(
+                f"collision rule {collision_rule} is not a valid collision rule")
+
+        transformation_collisions = []
+        for transformation in transformations:
+            module_id = transformation.location
+            cases = []
+
+            [cases.append(evaluate_case(module_id, graph, case))
+             for case in transformation.collisions]
+            # print(cases)
+            transformation_collisions.append(collision_rules[collision_rule](cases))
+        print(transformation_collisions)
+        return all(transformation_collisions)
 
     
+    @staticmethod
+    def transform(graph: ConfigurationGraph, transformations: List[Transformation]) -> ConfigurationGraph:
+        """
 
-# def check_vertex(Move: Move):
-#     """
-#     Check if a vertex is in the graph or return None if not
-#     """
-#     graph = Move.graph
-#     vertex = Move.vertex
-#     try:
-#         #not sure if this works?
-#         if type(vertex) == int:
-#             graph.V[vertex]
-#         elif type(vertex) == np.array:
-#             graph.V[graph.get_index(vertex)]
+        :param graph: a graph object
+        :param transformations: a list of named transformation tuples
+        :return: a new graph object with the transformations applied
+        """
+    
+        new_graph = copy.deepcopy(graph)
+        for transformation in transformations:
+            new_graph.vertices[transformation.location] += transformation.translation
+        return new_graph
 
-#         return Move
+    def __call__(self) -> Union[ConfigurationGraph, None]:
+        return self.wrapped_value.get()
 
-#     except IndexError:
-#         return None
+    @classmethod
+    @property
+    @abstractmethod
+    def cell_type(cls) -> Cell:
+        """the type of the cell that the move is designed for"""
+        pass
 
-# def check_path(Move: Move):
-#     """
-#     Check if the path is valid or return None if not
-#     """
-#     graph = Move.graph
-#     vertex = Move.vertex
-#     path = Move.path
-#     if np.any(np.all(graph.V==vertex, axis=1)):
-#         return Move
-#     else:
-#         return None
+    @classmethod
+    @property
+    @abstractmethod
+    def checklist(cls) -> List[callable]:
+        """a list of checks to be performed on the target configuration, specific to that move"""
+        pass
 
+    @classmethod
+    @property
+    @abstractmethod
+    def collision_rule(cls) -> str:
+        """The collision rule for the move, typically sliding moves use 'or', while rotation moves use 'xor'"""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def generate_transforms(cls, graph, module_id, direction) -> List[Transformation]:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def generate_collisions(cls, direction, collision_index=0) -> Tuple[CollisionCheck, ...]:
+        pass

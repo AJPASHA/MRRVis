@@ -11,14 +11,14 @@ contains methods for module graph manipulation
 """
 
 
-from mrrvis.graph import ModuleGraph, equals, connected, get_index
+from mrrvis.configuration import ConfigurationGraph, connected, get_index
 # from mrrvis.cells import Square, Hex, Tri, Cube
 from mrrvis.move import Move
 import numpy as np
 import warnings
 
 
-def add_vertices(graph: ModuleGraph, in_vertices: np.array, check_connectivity=True) -> ModuleGraph:
+def add_vertices(graph: ConfigurationGraph, in_vertices: np.array, check_connectivity=True) -> ConfigurationGraph:
     """
     Add vertices to the graph
 
@@ -58,7 +58,7 @@ def add_vertices(graph: ModuleGraph, in_vertices: np.array, check_connectivity=T
     in_vertices = np.unique(in_vertices, axis=0) #not sure a about axis here
     
     new_vertices = np.append(graph.vertices, in_vertices, axis=0)
-    new_graph = ModuleGraph(Cell, new_vertices, graph.connect_type)
+    new_graph = ConfigurationGraph(Cell, new_vertices, graph.connect_type)
 
     #3. if necessary, check connectivity of resulting array
     if not(check_connectivity) or len(graph.vertices)==0:
@@ -72,7 +72,7 @@ def add_vertices(graph: ModuleGraph, in_vertices: np.array, check_connectivity=T
                 return new_graph
 
 
-def remove_vertices(graph: ModuleGraph, rm_vertices: np.array, check_connectivity=True) -> ModuleGraph:
+def remove_vertices(graph: ConfigurationGraph, rm_vertices: np.array, check_connectivity=True) -> ConfigurationGraph:
     """
     Remove vertices in the graph
 
@@ -106,7 +106,7 @@ def remove_vertices(graph: ModuleGraph, rm_vertices: np.array, check_connectivit
             # if the vertex is not in the graph, do nothing
             continue
     # generate new graph
-    new_graph = ModuleGraph(Cell, vertices, graph.connect_type)
+    new_graph = ConfigurationGraph(Cell, vertices, graph.connect_type)
 
 
     #2. check connectivity of resulting array
@@ -120,7 +120,7 @@ def remove_vertices(graph: ModuleGraph, rm_vertices: np.array, check_connectivit
             return new_graph
 
 
-def move(Move:Move, module: np.array, direction: str, graph: ModuleGraph, check_connectivity=True)-> ModuleGraph:
+def move(Move:Move, module: np.array, direction: str, graph: ConfigurationGraph, check_connectivity=True)-> ConfigurationGraph:
     """
     Move a vertex to a new location
     
@@ -131,5 +131,3 @@ def move(Move:Move, module: np.array, direction: str, graph: ModuleGraph, check_
     move = Move(module, direction, graph)
     if move() is None:
         return graph
-
-

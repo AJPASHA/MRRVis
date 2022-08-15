@@ -4,12 +4,12 @@ import numpy as np
 import warnings
 from mrrvis.cell import Cell
 from mrrvis.cells import Square,Hex, Tri, Cube
-from mrrvis.utils import rotation_2D, rotation_3Dx, rotation_3Dy, rotation_3Dz
+from mrrvis.geometry_utils import rotate
 
 
 
 
-class ModuleGraph:
+class ConfigurationGraph:
     def __init__(self, CellPrototype: Cell, vertices: np.array = None, connect_type='edge') -> None:
         """Create a module graph object
         parameters:
@@ -61,7 +61,7 @@ class ModuleGraph:
             # np.unique doesn't preserve order, so we need to record the indices and perform argsort on the resulting array
             vertices, ind = np.unique(vertices, return_index=True,axis=0)
             vertices =  vertices[np.argsort(ind)]
-            # print(vertices)
+  
             self.vertices = vertices
 
     def get_index(self, vertex):
@@ -73,7 +73,7 @@ class ModuleGraph:
             warnings.warn(f"{vertex} is not in the graph")
             return None
 
-    def is_connected(self):
+    def is_connected(self) -> bool:
         """Check if the graph is connected"""
         vertices = self.vertices
 
@@ -127,6 +127,11 @@ class ModuleGraph:
         "alias for edge graph"
         return self.edges
 
+    @property
+    def n(self):
+        "number of modules in the graph"
+        return len(self.vertices)
+
     def isomorphic(self, other) -> bool:
         """Check if two graphs are isomorphic 
         accessible as __eq__
@@ -145,16 +150,12 @@ class ModuleGraph:
             return False
 
         rotation_angle = self.Cell.rotation_angle
-        rotations_per_axis = int((2*np.pi)/rotation_angle)
+        rotations_per_axis = (2*np.pi)/rotation_angle
+        if abs(rotations_per_axis-int(rotations_per_axis))>0.001:
+            raise ValueError("rotation angle must be a multiple of 2*pi/n_parameters")
+        rotations_per_axis = int(rotations_per_axis)
 
-        if self.Cell == Square:
-            rotator = rotation_2D(rotation_angle)
-        elif self.Cell == Hex or self.Cell==Tri:
-            rotator = rotation_3Dx(rotation_angle)+rotation_3Dy(rotation_angle)+rotation_3Dz(rotation_angle)
-        elif self.Cell ==Cube:
-            rotatorx = rotation_3Dx(rotation_angle)
-            rotatory = rotation_3Dy(rotation_angle)
-            rotatorz = rotation_3Dz(rotation_angle)
+        
 
         #1. center self graph on origin from most westerly, then southerly, then downward vertex
         self_min = min_coord(self_verts)
@@ -174,7 +175,24 @@ class ModuleGraph:
                     return True
                 #4. rotate the other graph by the rotation angle
                 else:
-                    other_verts =rotator.dot(other_verts.T).T
+                    if self.Cell == Square:
+                        other_verts = rotate(other_verts, 1)
+                    elif self.Cell == Hex or self.Cell==Tri:
+                        #not sure about this, will need significant testing
+                        other_verts = (
+                                rotate(other_verts, 1, axis='x') 
+                            +   rotate(other_verts, 1, axis='y') 
+                            +   rotate(other_verts, 1, axis='z')
+                        )
+        if self.Cell.dimensions==3:
+            raise NotImplementedError("isomorphic check for 3D not implemented")
+                # elif self.Cell ==Cube:
+                #     rotatorx = _3Dx_rotation_matrix(rotation_angle)
+                #     rotatory = _3Dy_rotation_matrix(rotation_angle)
+                #     rotatorz = _3Dz_rotation_matrix(rotation_angle)
+                    
+ 
+
 
             return False
 
@@ -191,14 +209,17 @@ class ModuleGraph:
         Currently does not work for rotational symmetry
         """
         return self.isomorphic(other)
+    
+    def __getitem__(self, index):
+        return self.vertices[index]
 
 
-def equals(graph1: ModuleGraph, graph2: ModuleGraph)->bool:
+def equals(graph1: ConfigurationGraph, graph2: ConfigurationGraph)->bool:
     """Check if two graphs are equal
     """
     return graph1 == graph2
 
-def connected(graph: ModuleGraph):
+def connected(graph: ConfigurationGraph):
     """Checks if the graph is connected
     alias of graph.is_connected()
     """
