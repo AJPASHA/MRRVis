@@ -3,8 +3,8 @@
 import numpy as np
 from mrrvis.configuration import ConfigurationGraph
 from mrrvis.move import CollisionCheck, Move, Transformation
-from mrrvis.cells import Square
-import mrrvis.cell as cell
+
+from mrrvis.cell import Square
 from typing import List, Tuple, Union
 
 class slide(Move):
@@ -14,6 +14,7 @@ class slide(Move):
     cell_type = Square
     checklist = []
     collision_rule = 'or'
+    compass = ['N', 'S', 'E', 'W']
 
     def __init__(self, graph: ConfigurationGraph, module_id: Union[int, np.array], direction: str, checks=[]):
         super().__init__(graph, module_id, direction, checks)
@@ -30,13 +31,11 @@ class slide(Move):
 
         Cell = graph.Cell
 
-        if direction not in ['N', 'S', 'E', 'W']:
-            raise ValueError('Invalid direction')
+        super().generate_transforms(graph, module_id, direction)
         
     
         module = graph[module_id]
-        # generate the transformation object
-        # collisions = cls.generate_collisions(direction)
+        # There ought to be an easier way to describe the transformation
         transformation = cls.Transformation(
             location=module_id, 
             translation = Cell(module).adjacent_transformations('edge')[direction],
@@ -72,6 +71,7 @@ class rotate(Move):
     cell_type = Square
     checklist = []
     collision_rule = 'xor'
+    compass = ['NE', 'SE', 'SW', 'NW']
 
     def __init__(self, graph: ConfigurationGraph, module: Union[int, np.ndarray], direction, additional_checks=[], check_connectivity=True):
         super().__init__(graph, module, direction, additional_checks, check_connectivity)
@@ -81,8 +81,7 @@ class rotate(Move):
         """generate transformations for the rotation move
 
         """
-        if direction not in ['NE', 'SE', 'SW', 'NW']:
-            raise ValueError('Invalid direction')
+        super().generate_transforms(graph, module_id, direction)
 
 
         Cell = graph.Cell
@@ -100,8 +99,8 @@ class rotate(Move):
         """generate collisions for the rotation move
         """
         #by default, cases are for a north east move
-        case0 = cls.Collision(empty=np.array([0,1],[1,1]), full = np.array([[1,0]]))
-        case1 = cls.Collision(empty=np.array([1,0],[1,1]), full = np.array([[0,1]]))
+        case0 = cls.Collision(empty=np.array([[0,1],[1,1]]), full = np.array([[1,0]]))
+        case1 = cls.Collision(empty=np.array([[1,0],[1,1]]), full = np.array([[0,1]]))
         #note, rotations are counterclockwise
         compass = {'NE':0, 'NW':1, 'SW':2, 'SE':3}
         try:
@@ -115,5 +114,46 @@ class rotate(Move):
         return (case0,case1)
 
     
+# class slide_line(Move):
+#     cell_type = Square
+#     checklist = []
+#     collision_rule = 'or'
+#     compass = ['N', 'S', 'E', 'W']
+#     additional_collisions = None
+
+#     def __init__(self, graph: ConfigurationGraph, module_id: Union[int, np.array], direction: str, checks=[]):
+#         super().__init__(graph, module_id, direction, checks)
+    
+#     @classmethod
+#     def generate_transforms(cls, graph: ConfigurationGraph, module_id: Union[int, np.array], direction)->List[Transformation]:
+#         """ 
+#         Generate a list of transformations for a move
+#         :param graph: the graph to move within
+#         :param module_id: the id of the module to move
+#         :param direction: the direction to move the module in
+#         :return: a list of transformations
+#         """
+#         super().generate_transforms(graph, module_id, direction)
+#         Cell = graph.Cell
+#         module = graph[module_id]
+#         translation = Cell(current_cell).adjacent_transformations('edge')[direction]
+#         # generate the transformation list
+#         transformations = []
+#         current_cell = module
+#         next_cell_occupied = lambda module: Cell(module)[direction] in graph
 
         
+
+#         while next_cell_occupied(current_cell):
+#             transformations.append(
+#                 cls.Transformation(
+#                     location=graph.get_index(current_cell),
+#                     translation = translation,
+#                     collisions = cls.generate_collisions(direction)
+#                 )
+#             )
+#             current_cell = Cell(current_cell)[direction]
+
+
+
+

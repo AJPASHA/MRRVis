@@ -3,6 +3,7 @@
 """The setup script."""
 
 from setuptools import setup, find_packages
+import mrrvis
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()

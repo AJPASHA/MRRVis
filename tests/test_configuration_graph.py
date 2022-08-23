@@ -1,7 +1,6 @@
-from mrrvis.cell import Cell
-from mrrvis.configuration import ConfigurationGraph
-from mrrvis.configuration_operations import add_vertices, remove_vertices
-from mrrvis.cells import Square
+from mrrvis.cell import Cell, Square
+from mrrvis.configuration import ConfigurationGraph, add_vertices, remove_vertices
+
 import numpy as np
 import pytest
 
@@ -20,7 +19,7 @@ def test_init():
 
 def test_init_invalid_cell():
     """Test the creation of a module graph object with an invalid cell by verifying that using the prototype Cell is invalid"""
-    with pytest.raises(TypeError):
+    with pytest.raises(NotImplementedError):
         ConfigurationGraph(Cell)
 
 
@@ -143,3 +142,5 @@ def test_equals_rotate_2():
 
     graph2 = ConfigurationGraph(Square, g2_verts)
     assert graph1 == graph2
+
+# def test_funcs_vertex_connectivity():

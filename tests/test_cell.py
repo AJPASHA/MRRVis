@@ -1,8 +1,11 @@
+"""Tests for the Cell class, instantiated as its square subclass
+
+(because abstract classes are hard to unit test in themselves)
+"""
+
 import pytest
-# from mrrvis import mrrvis
-from mrrvis.cells import Square
 import numpy as np
-from mrrvis.cell import Cell
+from mrrvis.cell import Cell, Square
 
 """Square cell test cases"""
 def test_init_valid():
@@ -21,9 +24,15 @@ def test_invalid_init_len():
     with pytest.raises(ValueError):
         Square([1,1,1])
 
+def test_invalid_2D():
+    """test that invalid 2D coordinates are handled correctly"""
+    with pytest.raises(ValueError):
+        Square(np.array([[0, 0]]))
+
+
 def test_invalid_subclass():
     """test that failure to implement abstract class methods raises error"""
-    with pytest.raises(TypeError):
+    with pytest.raises(NotImplementedError):
         class InvalidCell(Cell):
             def __init__(self, coord: np.array) -> None:
                 super().__init__(coord)
@@ -37,6 +46,13 @@ def test_invalid_subclass():
 def test___getitem__():
     cell = Square(np.array([2,1]))
     assert np.all(cell['N'] == np.array([2,2]))
+    assert np.all(cell['S'] == np.array([2,0]))
+    assert np.all(cell['E'] == np.array([3,1]))
+    assert np.all(cell['W'] == np.array([1,1]))
+    assert np.all(cell['NE'] == np.array([3,2]))
+    assert np.all(cell['NW'] == np.array([1,2]))
+    assert np.all(cell['SE'] == np.array([3,0]))
+    assert np.all(cell['SW'] == np.array([1,0]))
 
     with pytest.raises(KeyError):
         cell['foo']

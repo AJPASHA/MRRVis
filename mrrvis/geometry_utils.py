@@ -1,62 +1,42 @@
-"""useful utilities for geometry
+"""Utilities for performing geometric operations on matrices
 
-defines 2 key functions:
-    rotate(array, turns, base_angle, axis) -> np.array: discrete rotation around an axis
-    mirror(array, axis) -> np.array: reflection around an axis
+rotate_cartesian:
+    rotate an set of points counterclockwise around a point, by default the origin, on an axis
 
 """
+from typing import Generator, Union
 import numpy as np
 
-#rotation matrices for 2D and 3D
-_2D_rotation_matrix = lambda theta: np.array([
-    [np.cos(theta), -np.sin(theta)],
-    [np.sin(theta), np.cos(theta)]
-]).astype(int)
-_3Dx_rotation_matrix = lambda theta: np.array([
-    [1, 0,              0], 
-    [0, np.cos(theta),  -np.sin(theta)], 
-    [0, np.sin(theta),  np.cos(theta)]
-]).astype(int)
 
-_3Dy_rotation_matrix = lambda theta: np.array([
-    [np.cos(theta), 0,  np.sin(theta)],
-    [0,             1,  0],
-    [-np.sin(theta), 0, np.cos(theta)]
-]).astype(int)
+def r_from_normal(angle, normal, discretise=True):
+    """rotation matrix from a unit vector normal to the plane of rotation in discrete space
+    Parameters:
+    :param angle: float: angle to rotate by
+    :param normal: np.ndarray: unit vector normal to the plane of rotation
+    :return: np.ndarray: rotation matrix
+    """
+    try:
+        normal = np.array(normal)
+    except:
+        raise ValueError('normal must be sequence')
 
-_3Dz_rotation_matrix = lambda theta: np.array([
-    [np.cos(theta), -np.sin(theta), 0],
-    [np.sin(theta), np.cos(theta),  0],
-    [0,             0,              1]
-]).astype(int)
-
-_2Dx_mirror_matrix = np.array([
-    [1,0],
-    [0,-1]
-])
-_2Dy_mirror_matrix = np.array([
-    [-1,0],
-    [0,1]
-])
-_3Dx_mirror_matrix = np.array([
-    [1,0,0],
-    [0,-1,0],
-    [0,0,-1]
-])
-_3Dy_mirror_matrix = np.array([
-    [1,0,0],
-    [0,-1,0],
-    [0,0,1]
-])
-_3Dz_mirror_matrix = np.array([
-    [1,0,0],
-    [0,1,0],
-    [0,0,-1]
-])
+    x, y, z = normal
+    c = np.cos(angle)
+    s = np.sin(angle)
+    r = np.array([
+        [x*x*(1-c)+c, x*y*(1-c)-z*s, x*z*(1-c)+y*s],
+        [y*x*(1-c)+z*s, y*y*(1-c)+c, y*z*(1-c)-x*s],
+        [x*z*(1-c)-y*s, y*z*(1-c)+x*s, z*z*(1-c)+c]
+    ])
+    if discretise:
+        return r.astype(int)
+    else:
+        return r
 
 
-def rotate(array: np.ndarray, turns: int, base_angle:float = np.pi/2, around:np.ndarray= None, axis: str=None, ) -> np.ndarray:
-    """rotate an set of points counterclockwise around a point, by default the origin
+
+def rotate_normal(array: np.ndarray, turns: int, base_angle: float = np.pi/2, around: np.ndarray = None, axis: Union[str, np.array] = None, ) -> np.ndarray:
+    """rotate an set of points counterclockwise around a point, by default the origin in discrete space
     (negatives are clockwise)
 
     Parameters:
@@ -64,91 +44,93 @@ def rotate(array: np.ndarray, turns: int, base_angle:float = np.pi/2, around:np.
     :param turns: int: number of turns to rotate by
     :param base_angle: float: angle to rotate by
     :param around: np.ndarray: point to rotate around
-    :param axis: str: axis to rotate around
+    :param axis: str: axis to rotate around or a vector normal to the plane of rotation
 
     :return: np.ndarray: rotated array
 
+    for a description of the axis and angle rotation, see:
+    https://en.wikipedia.org/wiki/Rotation_matrix#Axis_and_angle
     """
 
     num_rots = 2*np.pi/base_angle
+    # nothing about this function is inherently discrete, so this check might need to be removed should the library be expanded to real spaces
     if abs(num_rots-int(num_rots)) > 0.001:
-        raise ValueError(f'the base angle should divide 2pi; 2pi/{base_angle} must be an integer')
-    
+        raise ValueError(
+            f'the base angle should divide 2pi; 2pi/base_angle must be an integer')
     if type(turns) != int:
         raise ValueError('turns must be an integer')
+
     dims = array.shape[-1]
     theta = turns * base_angle
     if dims == 3:
- 
-        if axis is None:
-            raise ValueError('axis must be specified for 3D arrays')
-        else:
-            # because matrix multiplication is non commutative
-            rotation_matrix_dict = {
-                'x': _3Dx_rotation_matrix(theta),
-                'y': _3Dy_rotation_matrix(theta),
-                'z': _3Dz_rotation_matrix(theta)
+        if type(axis) == str:  # generate a normal vector from a string representing an axis
+            normal_dict = {
+                'x': np.array([1, 0, 0]),
+                'y': np.array([0, 1, 0]),
+                'z': np.array([0, 0, 1])
             }
-            f = False # flag for recursion
-            for c in axis:
-                try:
-                    if not(f):
-                        r = rotation_matrix_dict[c]
-                    else:
-                        r = rotation_matrix_dict[c]@(r)
-                except KeyError as e:
-                    raise KeyError(f'axis must be a combination of x, y, or z') from e
+            norm = np.array([0, 0, 0])
+            for c in ['x', 'y', 'z']:
+                if c in axis:
 
-                f=True
-    else:
-        r =  _2D_rotation_matrix(theta)
-    
-    if around is not None:
-        try:
-            return (r@(array-around).T).T + around
-        except ValueError as e:
-            raise ValueError('array and around must have the same trailing axes') from e
-    else:
-        return (r@array.T).T
-  
+                    norm += normal_dict[c]
 
+            
+        elif hasattr(axis, '__iter__'):  # axis is a vector: is already the normal
+            norm = np.array(axis)
+        else: # axis has to have a value in 3D as there is no such thing as a 'generic' 3D rotation, as rotations are inherently 2
+            raise ValueError('axis must be specified for 3D arrays')
 
-def mirror(array:np.ndarray, axis = str):
-    """mirror an array around an axis"""
-
-    #not fully implemented yet
-    if array.shape[-1] == 2:
-        mirror_matrix_dict = {
-            'x': _2Dx_mirror_matrix,
-            'y': _2Dy_mirror_matrix
-        }
-        f=False # flag for recursion
-
-    elif array.shape[-1] == 3:
-        mirror_matrix_dict = {
-            'x': _3Dx_mirror_matrix,
-            'y': _3Dy_mirror_matrix,
-            'z': _3Dz_mirror_matrix
-        }
+        if norm.tolist() not in [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]]:
+                # hacky solution but cheap; if this method is extended to non-discrete spaces, this check should 
+                # be removed
+                raise ValueError('axis must either be a string representing the axis or a vector normal ')
         
-    else:
-        raise ValueError('array must be 2D or 3D')
-    
-    f=False # flag for recursion
-    for c in axis:
-        try:
-            if not(f):
-                m = mirror_matrix_dict[c]
-            else:
-                m = mirror_matrix_dict[c]@(m)
-        except KeyError as e:
-            if array.shape[-1]==2:
-                raise KeyError(f'axis must be a combination of x or y') from e
-            else:
-                raise KeyError(f'axis must be a combination of x, y, or z') from e
-    
-    return (m@array.T).T
+        r = r_from_normal(theta, norm)
+
+    else: # 2D: a rotation in 2D is simply the first two components of a rotation on the plane z=0, i.e. normal [0,0,1]
+        r = r_from_normal(theta, [0, 0, 1])[:2, :2]
+
+    if around is None:
+        around = np.array([0, 0]) if dims == 2 else np.array([0, 0, 0])
+
+    try:
+        return (r@(array-around).T).T + around
+    except ValueError as e:
+        raise ValueError(
+            'array and around must have the same trailing axes') from e
 
 
-        
 
+def isometric(array: np.ndarray) -> np.ndarray:
+    """isometric transformation of triangular coordinates onto a 2D cartesian plane, for visualization purposes
+    Parameters:
+    :param array: np.ndarray: array of points to rotate
+    :return: np.ndarray: rotated array
+
+
+    https://en.wikipedia.org/wiki/Isometric_projection
+    """
+
+    xs, ys, zs = array.T
+    us = (xs-zs)/np.sqrt(2)
+    vs = (xs+2*ys+zs)/np.sqrt(6)
+    return np.array([us, vs]).T
+
+def cube_rotation_list(array: np.ndarray) -> Generator:
+    """generator of 24 rotations in the regular octahedral rotation group S_4 for an array of 3D cartesian coordinates"""
+    # based on https://stackoverflow.com/questions/16452383/how-to-get-all-24-rotations-of-a-3-dimensional-array
+    # expanded for dealing with an array of coordinates
+    def roll(arr) : return rotate_normal(arr,1,axis = np.array([0,1,0]))
+    def turn(arr) : return rotate_normal(arr,1,axis =np.array([0,0,1])) # yaw
+    def sequence(arr):
+        for _side in range(2):
+            for _roll in range(3):
+                arr = roll(arr)
+                yield arr
+                for _turn in range(3):
+                    arr = turn(arr)
+                    yield arr
+            arr = roll(turn(roll(arr)))
+
+    return sequence(array)
