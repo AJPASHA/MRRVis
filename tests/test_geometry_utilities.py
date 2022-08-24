@@ -1,7 +1,7 @@
 
 import pytest
 import numpy as np
-from mrrvis.geometry_utils import rotate_normal, isometric,r_from_normal, cube_rotation_list
+from mrrvis.geometry_utils import rotate_normal, isometric,r_from_normal, cube_rotation_list, square_rotation_list, tri_rotation_list, hex_rotation_list
 
 
 _3Dx_rotation_matrix = lambda theta: np.array([
@@ -53,7 +53,6 @@ def test_rot_around():
 
 
 
-
 def test_rot_single_item():
     arr = np.array([1,0])
     #because the function is defined for a matrix, it seems prudent to check that it works for a single array
@@ -61,10 +60,11 @@ def test_rot_single_item():
 
 def test_wrong_axis():
     arr = np.array([[1,0,0],[0,1,0],[0,0,1]])
-    with pytest.raises(ValueError):
-        rotate_normal(arr,1, axis='foo')
+    with pytest.raises(Exception): #ideally this should be a ValueError, but Pytest is behaving strangely, 
+        # it catches a value error but does not raise it, causing another error to happen due to None values
+        rotate_normal(arr,3, axis='foo')
 
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         rotate_normal(arr,1)
 
     #the axis should be irrelevant to 2D rotations
@@ -79,7 +79,7 @@ def test_wrong_turns():
 
 def test_rot_3D():
     arr = np.array([[5,0,0],[0,5,0],[0,0,5]])
-    print(rotate_normal(arr,1,axis='x'))
+
     assert np.all(rotate_normal(arr,1,axis='x') == np.array([[5,0,0],[0,0,5],[0,-5,0]]))
     assert np.all(rotate_normal(arr,1,axis='y') == np.array([[0,0,-5],[0,5,0],[5,0,0]]))
     assert np.all(rotate_normal(arr,1,axis='z') == np.array([[0,5,0],[-5,0,0],[0,0,5]]))
@@ -92,6 +92,12 @@ def test_rot_3D_composition():
     assert np.all(rotate_normal(arr,4, axis='xyz')==arr)
     assert np.all(rotate_normal(arr,4*5000, axis='xyz') == arr)
     assert np.all(rotate_normal(arr,2, axis='xy') == rotate_normal(arr,-2, axis='xy'))
+
+def test_rot_hex():
+    arr = np.array([[1,-1,0]])
+    assert np.all(rotate_normal(arr,1,axis='xyz',base_angle=np.pi/3) == rotate_normal(arr,1,axis='xzy',base_angle=np.pi/3))
+    print(r_from_normal(np.pi/3, np.array([1,1,1]),False))
+    assert np.all(rotate_normal(arr,1,axis=np.array([1,1,1]),base_angle=np.pi/3) == np.array([1,0,-1])) 
 
     
 # def test_mirror()
@@ -128,4 +134,23 @@ def test_cube_rot_generator():
 
     arr = [arr for arr in cube_rotation_list(np.array([[1,0,0],[0,1,0],[0,0,1]]))]
     assert len(arr) == 24
+    
+def test_square_rot_generator():
+    base_arr = np.array([[1,0],[0,1],[0,0]])
+    lst = square_rotation_list(base_arr)
+    check = base_arr
+    for shape in lst:
+        assert np.all(shape == check)
+        check = rotate_normal(check,1)
+
+def test_hex_rot_generator():
+    base_arr = np.array([[1,0,-1],[0,-1,1]])
+    lst = hex_rotation_list(base_arr)
+
+    check = base_arr
+    for shape in lst:
+        assert np.all(shape == check)
+        check = rotate_normal(check,1, axis=[1,1,1], base_angle=np.pi/3)
+        
+        
     

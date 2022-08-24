@@ -133,6 +133,9 @@ class Move(ABC):
         :method: _generate_collisions(direction, transformations)-> list[collision,...]
             a method which generates a list of named collision tuples
 
+        additionally, if the subclass has need of some global collision rule, for instance if a single transformation
+        concerns multiple modules, then it can override
+        :method: additional_collisions(graph, module_id, direction) -> list[CollisionCheck,...]
 
         'or' collision rule:
             if any of the collisions are true then the move is valid : generally useful for sliding moves
@@ -165,8 +168,9 @@ class Move(ABC):
         self.transformations = self.generate_transforms(
             graph, module, direction)  # generate the list of transformations (implemented in subclass)
 
+        additional_collisions = self.additional_collisions(graph, module, direction)
         # check if the move is locally feasible
-        if self.no_collision(graph, self.transformations):
+        if self.no_collision(graph, self.transformations, additional_collisions):
             new_graph = self.transform(graph, self.transformations)
 
             # wrap the graph in a checkwrapper
@@ -187,7 +191,7 @@ class Move(ABC):
             self.wrapped_value = self.wrapped_value.bind(check)
 
     @classmethod
-    def no_collision(cls, graph: ConfigurationGraph, transformations: List[List[Transformation]]) -> bool:
+    def no_collision(cls, graph: ConfigurationGraph, transformations: List[List[Transformation]], additional_collisions: list=None) -> bool:
         """
         :param graph: a graph object
         :param collisions: a list of named collision tuples
@@ -209,16 +213,22 @@ class Move(ABC):
             raise ValueError(
                 f"collision rule {collision_rule} is not a valid collision rule")
 
+        rule = collision_rules[collision_rule]
+
         transformation_collisions = []
         for transformation in transformations:
             module_id = transformation.location
             cases = []
 
-            [cases.append(case.evaluate_case(module_id, graph))
+            _ = [cases.append(case.evaluate_case(module_id, graph))
              for case in transformation.collisions]
+            
+            _ = [cases.append(case.evaluate_case(module_id, graph)) 
+                for case in additional_collisions]
 
             transformation_collisions.append(
-                collision_rules[collision_rule](cases))
+                rule(cases))
+            
         return all(transformation_collisions)
 
     @staticmethod
@@ -279,3 +289,7 @@ class Move(ABC):
     @abstractmethod
     def generate_collisions(cls, direction, collision_index=0) -> Tuple[CollisionCheck, ...]:
         pass
+
+    @classmethod
+    def additional_collisions(cls, graph, module_id, direction) -> List[CollisionCheck]:
+        return []
