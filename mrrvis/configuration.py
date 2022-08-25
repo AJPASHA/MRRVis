@@ -6,7 +6,12 @@ import warnings
 from mrrvis.cell import Cell, Square, Hex, Tri, Cube
 from mrrvis.geometry_utils import rotate_normal, cube_rotation_list
 
-
+cells = {
+    "Square": Square,
+    "Cube": Cube,
+    "Triangle": Tri,
+    "Hexagon": Hex,
+}
 class ConfigurationGraph:
     def __init__(self, CellPrototype: Cell, vertices: np.array = None, connect_type='edge') -> None:
         """Create a module graph object
@@ -21,7 +26,9 @@ class ConfigurationGraph:
         note: the default connectivity is edge, as this is the only type which is universal to all module types
         """
         # verify that Cell is a Cell Prototype
-        if issubclass(CellPrototype, Cell):
+        if type(CellPrototype) is str:
+            self.Cell = cells[CellPrototype]
+        elif issubclass(CellPrototype, Cell):
             self.Cell = CellPrototype
         else:
             raise TypeError(
@@ -191,7 +198,7 @@ class ConfigurationGraph:
                 other_set = set([tuple(vert) for vert in other_verts])
                 if self_set == other_set:
                     return True
-
+        return False
     def add_vertices(self, in_vertices: np.array, check_connectivity=True) -> 'ConfigurationGraph':
         """
         Add vertices to the graph

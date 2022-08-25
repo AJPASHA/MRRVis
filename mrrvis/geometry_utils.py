@@ -95,7 +95,6 @@ def rotate_normal(array: np.ndarray, turns: int, base_angle: float = np.pi/2, ar
 
 
     transformed_array = ((r@(array-around).T).T + around)
-    print(transformed_array)
     return np.around(transformed_array).astype(np.int16)
 
 
