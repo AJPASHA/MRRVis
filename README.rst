@@ -30,10 +30,11 @@ A visualisation tool for modular reconfigurable robotics systems
 Features
 --------
 
-* TODO
-
 Credits
 -------
+This package was created by Alexander Pasha at the University of Liverpool, 
+under the supervision of Othon Michail
+
 
 This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
 

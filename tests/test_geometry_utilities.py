@@ -1,7 +1,7 @@
 
 import pytest
 import numpy as np
-from mrrvis.geometry_utils import rotate_normal, isometric,r_from_normal, cube_rotation_list, square_rotation_list, tri_rotation_list, hex_rotation_list
+from mrrvis.geometry_utils import rotate_normal, r_from_normal, cube_rotation_list, square_rotation_list, tri_rotation_list, hex_rotation_list
 
 
 _3Dx_rotation_matrix = lambda theta: np.array([
@@ -151,6 +151,14 @@ def test_hex_rot_generator():
     for shape in lst:
         assert np.all(shape == check)
         check = rotate_normal(check,1, axis=[1,1,1], base_angle=np.pi/3)
+
+def test_tri_rot_generator():
+    base_arr = np.array([[0,0,1],[1,0,0]])
+    lst = tri_rotation_list(base_arr)
+    check = base_arr
+    for shape in lst:
+        assert np.all(shape==check)
+        check = rotate_normal(check,1, axis=[1,1,1], base_angle=2*np.pi/3)
         
         
     

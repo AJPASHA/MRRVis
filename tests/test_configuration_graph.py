@@ -19,7 +19,7 @@ def test_init():
 
 def test_init_invalid_cell():
     """Test the creation of a module graph object with an invalid cell by verifying that using the prototype Cell is invalid"""
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(TypeError):
         ConfigurationGraph(Cell)
 
 
@@ -77,9 +77,17 @@ def test_connected_vertex():
 
 
 def test_connected_false():
-    with pytest.warns(UserWarning):
-        graph = ConfigurationGraph(Square, vertices=np.array([[0, 0], [10, 1]]))
-        assert graph.is_connected() == False
+
+    graph = ConfigurationGraph(Square, vertices=np.array([[0, 0], [10, 1]]))
+    assert graph.is_connected() is False
+
+
+    graph = ConfigurationGraph('Square',np.array([[0,0],[1,0],[0,1],[2,1]]), connect_type='edge')
+
+    assert graph.is_connected('edge') is False
+
+
+    # these are simple cases where the 
 
 
 def test_invalid_vertex_add():
@@ -143,4 +151,6 @@ def test_equals_rotate_2():
     graph2 = ConfigurationGraph(Square, g2_verts)
     assert graph1 == graph2
 
-# def test_funcs_vertex_connectivity():
+def test_in():
+    assert np.array([0,1]) in ConfigurationGraph(Square, np.array([[1,1],[0,1]]))
+    assert np.array([10,1]) not in ConfigurationGraph(Square, np.array([[1,1],[0,1]]))

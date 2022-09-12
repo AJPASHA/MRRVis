@@ -1,7 +1,7 @@
 import pytest
 from mrrvis.cell import Cube
 import numpy as np
-from mrrvis.testutils import compare_np_dicts
+from .testutils import compare_np_dicts
 
 def test_init():
     cell = Cube(np.array([1,2,3]))

@@ -32,7 +32,7 @@ def test_invalid_2D():
 
 def test_invalid_subclass():
     """test that failure to implement abstract class methods raises error"""
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(TypeError):
         class InvalidCell(Cell):
             def __init__(self, coord: np.array) -> None:
                 super().__init__(coord)

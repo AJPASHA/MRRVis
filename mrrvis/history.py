@@ -1,17 +1,32 @@
+"""defines a history object for storing a series of configurations"""
 from mrrvis.configuration import ConfigurationGraph
 from mrrvis.move import Move
 from collections import deque
 
 class History:
-    """A class to store the history of a configuration"""
-
     def __init__(self, state_0: ConfigurationGraph):
+        """The history of an environment
+        
+
+        :param state_0: the initial state of the environment system
+        attributes:
+        :param history: a queue of the states of the system
+        :param cell_type: the type of cell which the graph uses
+        """
         self.history = deque() # this might need some buffer size setting in the future
         self.history.append(state_0)
+        self.cell_type = state_0.Cell.__name__
+    @property
+    def t(self):
+        """The amount of items (time steps) in the history"""
+        return len(self.history)
+    def append(self, state: ConfigurationGraph):
+        """Append a move to the history
 
-    def append(self, move: Move):
-        """Append a move to the history"""
-        self.history.append(move())
+        :param state: the state to add
+        """
+
+        self.history.append(state)
 
     def __len__(self):
         return len(self.history)
@@ -20,7 +35,12 @@ class History:
         return self.history[item]
 
     def revert(self, n: int = 1):
-        """revert the history by n steps"""
+        """revert the history by n steps
+        params: 
+        :param n: the number of steps to revert by
+        returns:
+        :return: The last state after the reversion
+        """
         for _ in range(n):
             self.history.pop()
         return self.history[-1]
@@ -32,13 +52,13 @@ class History:
         return reversed(self.history)
 
     def __str__(self):
-        return str(self.history)
+        return repr(self)
 
     def __repr__(self):
-        return repr(self.history)
+        return f"""History, t={self.t}\ncell type = {self.cell_type}\ncurrent state: {self[-1].vertices} """
 
     def __hash__(self):
         return hash(self.history)
 
-    def __contains__(self, item):
+    def __contains__(self, item: ConfigurationGraph):
         return item in self.history

@@ -19,41 +19,51 @@ Checkwrapper is a way to wrap a candidate configuration so that additional check
     it simply takes a ConfigurationGraph as a value, wraps it and allows checks to be made on its' feasibility
     these checks are simply functions which take a graph as their only argument and return a boolean
 
-
 """
-
 
 from abc import ABC, abstractmethod
 import copy
-from gettext import translation
-from typing import List, NamedTuple, Tuple, Union
+from typing import Callable, Iterable, List, Literal, NamedTuple, Union
+
 import numpy as np
-from mrrvis.cell import Cell
-from mrrvis.configuration import ConfigurationGraph, connected
+from mrrvis.configuration import ConfigurationGraph, edge_connected, vert_connected
 from mrrvis.geometry_utils import rotate_normal
 import warnings
-from inspect import signature
 
-class CollisionCheck(NamedTuple):
+
+class CollisionCase(NamedTuple):
+    """A single collision case"""
     empty: np.ndarray
     full: np.ndarray
 
-    def rotate(self, turns, base_angle=np.pi/2, around=None, axis=None) -> 'CollisionCheck':
-        return CollisionCheck(
+    def rotate(self, turns, base_angle=np.pi/2, around:np.ndarray=None, axis=None) -> 'CollisionCase':
+        """rotate both arrays in the collision object
+        :param turns: the number of times the base angle to rotate by (counter clockwise)
+        :param base_angle: the angle per turn
+        :param around: the coordinate to rotate around
+        :param axis: the axis or normal vector to rotate around
+        :type axis: str or np.ndarray
+        This comes in handy when we need to rotate a basic collision example around a compass for a move
+        """
+        return CollisionCase(
             rotate_normal(self.empty, turns, base_angle, around, axis),
             rotate_normal(self.full, turns, base_angle, around, axis)
         )
 
-    def evaluate_case(self, module_id: int, graph: ConfigurationGraph, ) -> bool:
-        transform_location = graph.vertices[module_id]
+    def evaluate_case(self, graph: ConfigurationGraph, ) -> bool:
+        """evaluate collision for this case
+        :param graph: graph to check collision against
+        :return: a bool showing true if no collision detected
+        """
 
-        empty = transform_location + self.empty
-        full = transform_location + self.full
-        # we need to make sure that the empty and full arrays are 2D arrays by adding a dimension if their row length is 1
-        if len(empty.shape) == 1:
+        empty = self.empty
+        full = self.full
+       
+        if len(empty.shape) == 1: # we need to make sure that the empty and full arrays are 2D arrays
             empty = np.array([empty])
         if len(full.shape) == 1:
             full = np.array([full])
+
         for vertex in empty:
             if vertex in graph:
                 return False
@@ -62,234 +72,267 @@ class CollisionCheck(NamedTuple):
                 return False
         return True
 
+    def __call__(self) -> bool:
+        return self.evaluate_case()
 
-class Transformation(NamedTuple):
-    location: int
-    translation: np.ndarray
-    collisions: List[CollisionCheck]
-
-
-class Checkwrapper:
-    """A variation on the Failure Monad design pattern
-    which allows us to pipeline checks on the feasibility of a configuration
-
-    a useful explanation is given at
-    https://medium.com/swlh/monads-in-python-e3c9592285d6
-    """
-
-    def __init__(self, value: ConfigurationGraph) -> None:
-        self.value = value
-
-    def get(self):
-        return self.value
-
-    def bind(self, f: callable) -> 'Checkwrapper':
-        """Bind any function that takes a ConfigurationGraph and returns a boolean"""
-        if self.get() is None:
-            return Checkwrapper(None)
-
-        with warnings.catch_warnings():
-            # if the check fails, we want to ignore any warnings it may throw
-            # this is because we are checking the feasibility of the configuration
-            warnings.simplefilter("ignore")
-            try:
-                if f(self.get()):
-                    return Checkwrapper(self.get())
-                else:
-                    return Checkwrapper(None)
-            except Exception as e:
-                raise TypeError(f"{f.__name__} failed with exception \n{e}. \n\
-                Functions passed into the checkwrapper have to take a graph as input and return a bool") from e
+    def __add__(self, other: np.ndarray):
+        return CollisionCase(self.empty+other, self.full+other)
 
 
-class Move(ABC):
-    Transformation = Transformation
-    Collision = CollisionCheck
-    additional_collision_generators = []
+class Collision(NamedTuple):
+    """a collection of collision cases which have some evaluation rule when called
+    :param cases: the collection of cases to evaluate
+    :param eval_rule: the rule governing the evaluation of this collision"""
+    cases: List[CollisionCase]
+    eval_rule: Literal['or','and','xor']
 
-    def __init__(self, graph: ConfigurationGraph, module: Union[int, np.ndarray], direction, additional_checks=[], check_connectivity=True):
-        """a callable object which generates a move transformation with context
-
-        if the move is feasible, then the transformed graph is returned, if not then None is returned on call
-        if the move would be invalid then the move is said to not exist.
-        Collision detection is performed on initialisation, as is connectivity checking, though the latter can be disabled
-
-        additional checks on the feasibility of the move can be added by passing a list of functions to the additional_checks argument
-
-
-        :param graph: the graph to move the module within
-        :param module: the module to move; can be an index or the location coordinate of the module
-        :param direction: the direction to move the module in, the compass depends on the mov
-
-        subclasses must implement the following:
-        :param(cls): compass: list
-            a compass explaining the directions that a move can be carried out
-        :param(cls): cell_type: Cell
-            the cell type to use for the graph
-        :param(cls): collision_rule: str
-            the collision rule to use for the graph can be 'or', 'xor' or 'and'.
-        :method: _generate_transforms(graph, module_id, direction) -> list[Transformation,...]
-            a method which generates a list of named transformation tuples 
-        :method: _generate_collisions(direction, transformations)-> list[collision,...]
-            a method which generates a list of named collision tuples
-
-        additionally, if the subclass has need of some global collision rule, for instance if a single transformation
-        concerns multiple modules, then it can override
-        :method: additional_collisions(graph, module_id, direction) -> list[CollisionCheck,...]
-
-        'or' collision rule:
-            if any of the collisions are true then the move is valid : generally useful for sliding moves
-        'xor' collision rule:
-            if exactly one of the collisions are true then the move is valid : generally useful for rotating moves
-        'and' collision rule:
-            if all of the collisions are true then the move is valid : generally useful for moves with complex pathways
+    def evaluate_feasible(self, graph)-> bool:
+        """evaluation of collision
+        :param graph: the graph to evaluate against
+        :return: true if no collision, false if one is detected
         """
-        # if module is an int, then we interpret it as the index of the module in the graph
-        if type(module) == int:
-            try:
-                graph[module]
-            except IndexError:
-                raise IndexError(f"index {module} is out of range")
 
-        else:   # if module is an iterable, then we interpret it as a vertex of the graph and get its index
-            try:
-                # this allows us to convert non-array iterables to arrays, e.g. list or set
-                if hasattr(module, '__iter__'):
-                    module = np.array(module)
-                else:
-                    raise TypeError(
-                        "module must be an iterable which can be interpreted as a vector, must hasattr(module,'__iter__'")
-
-                module = graph.get_index(module)
-
-            except UserWarning:
-                raise ValueError(f"{module} is not in the graph")
-
-        self.transformations = self.generate_transforms(
-            graph, module, direction)  # generate the list of transformations (implemented in subclass)
-
-        additional_collisions = self.additional_collisions(graph, module, direction)
-        # check if the move is locally feasible
-        if self.no_collision(graph, self.transformations, additional_collisions):
-            new_graph = self.transform(graph, self.transformations)
-
-            # wrap the graph in a checkwrapper
-            self.wrapped_value = Checkwrapper(new_graph)
-
-        else:
-            # the move is infeasible so wrap None instead
-            self.wrapped_value = Checkwrapper(None)
-
-        if check_connectivity:  # In general we need to check that the graph is connected after the move
-            self.wrapped_value = self.wrapped_value.bind(connected)
-
-        # add additional checks to the checklist, typically when move is called from an Environment
-        self.checklist += additional_checks
-
-        for check in self.checklist:            
-            # perform the checks on the wrapped value, if it 'survives' the checks then the move is valid
-            self.wrapped_value = self.wrapped_value.bind(check)
-
-    @classmethod
-    def no_collision(cls, graph: ConfigurationGraph, transformations: List[List[Transformation]], additional_collisions: list=None) -> bool:
-        """
-        :param graph: a graph object
-        :param collisions: a list of named collision tuples
-        :return: a boolean indicating whether the transformations collide with the graph
-
-        collision_rule can be 'and' or 'or' or 'xor'
-
-        'or' is the default, but for rotating moves, 'xor' is usually required, because the module will have to rotate
-        around something else to get to the target location
-        """
-        collision_rule = cls.collision_rule
+        # if the collision object contains no cases we assume it is true
+        if len(self.cases)==0:
+            return True
 
         collision_rules = {
             'or': lambda cases: any(cases),
             'xor': lambda cases: sum(cases) == 1,
             'and': lambda cases: all(cases)
         }
-        if collision_rule not in list(collision_rules.keys()):
-            raise ValueError(
-                f"collision rule {collision_rule} is not a valid collision rule")
+        case_evaluations = [case.evaluate_case(graph) for case in self.cases]
+        try:
+            return collision_rules[self.eval_rule](case_evaluations)
+        except KeyError as e:
+            warnings.warn('collision rule must be one of or|xor|and')
+            raise e
 
-        rule = collision_rules[collision_rule]
+    def __call__(self, graph):
+        return self.evaluate_feasible(graph)
 
-        transformation_collisions = []
-        for transformation in transformations:
-            module_id = transformation.location
-            cases = []
 
-            _ = [cases.append(case.evaluate_case(module_id, graph))
-             for case in transformation.collisions]
-            
-            _ = [cases.append(case.evaluate_case(module_id, graph)) 
-                for case in additional_collisions]
+class Transformation(NamedTuple):
+    """The transformation and collision information of a single module in a transaction
 
-            transformation_collisions.append(
-                rule(cases))
-            
-        return all(transformation_collisions)
+    :param location: the module that is being affected
+    :param transformation: the resulting location of the module(s) (can include replication)
+    :param collision: the Collision object for this transformation
+    """
+    location: np.ndarray
+    transformation: np.ndarray
+    collision: Collision
 
-    @staticmethod
-    def transform(graph: ConfigurationGraph, transformations: List[Transformation]) -> ConfigurationGraph:
+
+class Checkwrapper:
+    def __init__(self, value: ConfigurationGraph) -> None:
+        """wrap a configuration graph as a checkwrapper
+        The CheckWrapper object allows for checks on the validity of a configuration to be pipelined, 
+        such that if one check fails and the move in fact has no value, we can skip through the rest of the pipeline without issue
+        
+        :param value: the graph to be wrapped
+        attributes:
+            value: the graph within the wrapper
+        methods:
+            get: return the value
+            __call__: returns self.get
+            bind: bind a function to the value, where if the function returns true, the value is unchanged, but if false
+                self.value becomes None as the configuration is infeasible
+    
+        A variation on the Failure Monad design pattern
+        which allows us to pipeline checks on the feasibility of a configuration
+
+        a useful explanation is given at
+        https://medium.com/swlh/monads-in-python-e3c9592285d6
         """
+        self.value = value
 
-        :param graph: a graph object
-        :param transformations: a list of named transformation tuples
-        :return: a new graph object with the transformations applied
+    def get(self):
+        "get the unwrapped value"
+        return self.value
+
+    def bind(self, f: callable) -> 'Checkwrapper':
+        """Bind any function that takes a ConfigurationGraph and returns a boolean
+        :param f: the function to bind
+        :return: the checkwrapper after the bound function
+
+        if true, then return the current wrapped value of the graph
+        if false, then return wrapped None
+        if a previous check has failed and the value is already None, then return None again
         """
-        new_graph = copy.deepcopy(graph)
-        for transformation in transformations:
-            new_graph.vertices[transformation.location] += transformation.translation
-        return new_graph
+        if self.value is None:
+            return Checkwrapper(None)
 
-    def __call__(self) -> Union[ConfigurationGraph, None]:
-        return self.wrapped_value.get()
+        try:
+            if f(self.value) is True:
+                
+                return Checkwrapper(self.value)
+            else:
 
-    def get(self) -> Union[ConfigurationGraph, None]:
-        return self.wrapped_value.get()
+                return Checkwrapper(None)
+
+        except Exception as e:
+            raise TypeError(f"failed with exception \n{e}. \n\
+            Functions passed into the checkwrapper have to take a graph as input and return a bool") from e
+    def __call__(self):
+        return self.get()
+
+
+class Move(ABC):
 
     @classmethod
     @property
     @abstractmethod
     def compass(cls) -> List[str]:
-        """a list of compass directions"""
+        """a list of valid compass directions for this move"""
         pass
 
     @classmethod
     @property
     @abstractmethod
-    def cell_type(cls) -> Cell:
+    def cell_type(cls) -> Literal['Square','Hex','Tri','Cube']:
         """the type of the cell that the move is designed for"""
         pass
 
-    @classmethod
-    @property
+
+
+
+    def __init__(self, configuration: ConfigurationGraph, module: Union[int, np.ndarray], direction:str, additional_checks:List[Callable]=None, verbose=False, check_connectivity=True):
+        """A callable object which can be used to safely move objects within a configuration, subject to rules set by the environment
+        
+        arguments:
+        :param configuration: The configuration graph to be edited
+        :param module: the module to be moved
+        :param direction: the direction for the move to be carried out in (see self.__class__.compass to get the compass of this move)
+        :param additional_checks: environment specific checks that the resulting configuration would have to take, on top of those already defined by the move.
+            such should be passed as a list of functions where those functions take a Configuration graph as input and return a bool as output
+        :param verbose: whether to provide warning information to explain the infeasability of a move
+
+        (methods and attributes marked S need to be implemented in the concrete subclass)
+        methods:
+            S generate_collisions: builds a Collision object for a single transformation
+            S generate_transaction: builds a transaction attribute which is a list of Task objects which govern the local feasibility of the transformation
+            attempt_transaction: takes the attribute
+            evaluate_checklist: evaluate global feasibility of the resulting configuration using the checklist
+        attributes:
+            S compass: the valid directions for the move
+            S cell_type: the type of cell that the move is valid for
+            S checklist: the list of checks to be carried out upon the candidate configuration
+        """
+
+            
+        if type(module) == int: #get the module location in the graph if the index was given
+            try:
+                module = configuration[module]
+            except KeyError as e:
+                warnings.warn("the module must be either an index in the graph, or a coordinate in its vertices")
+                raise e
+        module= np.array(module)
+
+
+        if not (direction in self.compass): #check string literal
+            raise ValueError(f"direction must be in {self.compass}")
+
+        self.checklist = []
+        if check_connectivity: #add the basic graph connectivity function to the checklist
+            connect_funcs = {
+                'vertex': vert_connected,
+                'edge': edge_connected,
+                'face': None
+            }
+
+            self.checklist.append(connect_funcs[configuration.connect_type]) 
+
+        if additional_checks is not None:
+            self.checklist = self.checklist + additional_checks #append externally required checks to the checklist
+
+        self.config = configuration
+        self.module = module
+        self.direction = direction.upper()
+        self.verbose = verbose
+
     @abstractmethod
-    def checklist(cls) -> List[callable]:
-        """a list of checks to be performed on the target configuration, specific to that move"""
+    def generate_collision(self, module)-> Collision:
+        """Generate the collision for a single transformation
+        must be implemented in subclass
+        remark. Collisions are objects containing a list of CollisionCase Objects and a collision rule, which affects the evaluation
+        """
+        pass
+    @abstractmethod
+    def generate_transaction(self)-> Iterable[Transformation]:
+        """generate a list of Transformation objects which need to be completed
+        must be implemented in subclass
+
+        recall, a task contains a module 
+        """
         pass
 
-    @classmethod
-    @property
-    @abstractmethod
-    def collision_rule(cls) -> str:
-        """The collision rule for the move, typically sliding moves use 'or', while rotation moves use 'xor'"""
-        pass
 
-    @classmethod
-    @abstractmethod
-    def generate_transforms(cls, graph, module_id, direction) -> List[Transformation]:
-        if direction not in cls.compass:
-            raise ValueError(
-                f"{direction} is not a valid direction for the move")
+    def attempt_transaction(self, transaction: Iterable[Transformation]) -> Union[ConfigurationGraph, None]:
+        """attempt to construct a new graph from the transaction
+        :param transaction: the list of transformations to be performed in this move
+        :return: the graph after this transaction is applied or none
+        """
+        if transaction is None:
+            # This indicates that the transaction is invalid
+            return None
 
-    @classmethod
-    @abstractmethod
-    def generate_collisions(cls, direction, collision_index=0) -> Tuple[CollisionCheck, ...]:
-        pass
+        new_graph = copy.deepcopy(self.config)
+        for transformation in transaction: 
 
-    @classmethod
-    def additional_collisions(cls, graph, module_id, direction) -> List[CollisionCheck]:
-        return []
+            if not transformation.collision(self.config): #test collision
+                warnings.warn('Collision: move infeasible')
+                return None
+            if len(transformation.transformation.shape) != 1:
+                raise NotImplementedError("transformation for replication not implemented yet")
+
+
+            index = new_graph.get_index(transformation.location)
+            new_graph.vertices[index] += transformation.transformation
+
+        return new_graph
+
+
+    def evaluate_checklist(self, candidate: ConfigurationGraph):
+        """evaluate the checklist on the resulting configuration
+        :param candidate: the graph to be evaluated
+        :return: candidate if feasible or None, if the move is infeasible
+        """
+        wrapped_value = Checkwrapper(candidate)
+
+        for check in self.checklist:
+            wrapped_value = wrapped_value.bind(check)
+
+        return wrapped_value.get()
+        
+
+    def evaluate(self)-> Union[ConfigurationGraph, None]:
+        """evaluate the validity of a move
+
+        :return: graph after having completed the move, or None if the move is infeasible
+
+        to do this we need to complete three steps:
+        1. generate a transaction (implemented by subclasses)
+        2. attempt transaction, to assert the local feasibility of the move
+        3. evaluate the checklist on the resulting configuration
+        """
+        if self.module not in self.config:  
+            warnings.warn('module not in graph')
+            return None
+        #1 generate a transaction
+        transaction = self.generate_transaction()
+        #2 attempt transaction
+        candidate_graph = self.attempt_transaction(transaction)
+        #3 evaluate new configuration against the ruleset
+        value = self.evaluate_checklist(candidate_graph)
+
+        return value
+
+    def __call__(self)-> Union[ConfigurationGraph, None]:
+        """generates the transaction, attempts it and then evaluates the checklist pipeline, returning a value if the move is feasible"""
+        return self.evaluate()
+
+
+        
+        
+

@@ -1,7 +1,7 @@
 import pytest
 from mrrvis.cell import Hex
 import numpy as np
-from mrrvis.testutils import compare_np_dicts
+from .testutils import compare_np_dicts
 
 def test_init_valid():
     cell = Hex(np.array([1,0,-1]))

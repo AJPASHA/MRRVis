@@ -2,7 +2,7 @@ from tabnanny import check
 import pytest
 from mrrvis.cell import Tri
 import numpy as np
-from mrrvis.testutils import compare_np_dicts
+from .testutils import compare_np_dicts
 
 
 def test_init():
@@ -33,19 +33,19 @@ def test_base_adjacents():
 
     assert compare_np_dicts(
         Tri.adjacent_transformations('edge', np.array([1, 0, 0])),
-        {'N': np.array([0, 1, 0]), 'SW': np.array(
-            [0, 0, 1]), 'SE': np.array([1, 0, 0])}
+        {'N': np.array([0,-1,0]), 'SW': np.array(
+            [0,0,-1]), 'SE': np.array([-1, 0, 0])}
     )
     assert compare_np_dicts(
         Tri.adjacent_transformations('edge', np.array([0, 0, 0])),
-        {'S': np.array([0, -1, 0]), 'NW': np.array([-1, 0, 0]),
-         'NE': np.array([0, 0, -1])}
+        {'S': np.array([0, 1, 0]), 'NW': np.array([1, 0, 0]),
+         'NE': np.array([0, 0, 1])}
     )
 
     assert compare_np_dicts(
         Tri.adjacent_transformations('vertex', np.array([1, 0, 0])),
-        {'N': np.array([0, 1, 0]), 'SW': np.array([0, 0, 1]), 'SE': np.array([1, 0, 0]),
-         'S': np.array([1, -1, 1]), 'NW': np.array([-1, 1, 1]), 'NE': np.array([1, 1, -1])}
+        {'N': np.array([0, -1, 0]), 'SW': np.array([0, 0, -1]), 'SE': np.array([-1, 0, 0]),
+         'S': np.array([-1, 1, -1]), 'NW': np.array([1, -1, -1]), 'NE': np.array([-1, -1, 1])}
 
     )
 
@@ -98,18 +98,18 @@ def test_adjacents():
 def test___getitem__():
     cell = Tri(np.array([1, 0, 0]))
     print(cell['N'])
-    assert np.all(cell['N'] == np.array([0, 1, 0])+cell.coord)
-    assert np.all(cell['SW'] == np.array([0, 0, 1])+cell.coord)
-    assert np.all(cell['SE'] == np.array([1, 0, 0])+cell.coord)
-    assert np.all(cell['S'] == np.array([1, -1, 1])+cell.coord)
-    assert np.all(cell['NW'] == np.array([-1, 1, 1])+cell.coord)
-    assert np.all(cell['NE'] == np.array([1, 1, -1])+cell.coord)
+    assert np.all(cell['N'] == np.array([0, -1, 0])+cell.coord)
+    assert np.all(cell['SW'] == np.array([0, 0, -1])+cell.coord)
+    assert np.all(cell['SE'] == np.array([-1, 0, 0])+cell.coord)
+    assert np.all(cell['S'] == np.array([-1, 1, -1])+cell.coord)
+    assert np.all(cell['NW'] == np.array([1, -1, -1])+cell.coord)
+    assert np.all(cell['NE'] == np.array([-1, -1, 1])+cell.coord)
 
     coord = np.array([0, 0, 0])
     cell = Tri(coord)
-    assert np.all(cell['S'] == np.array([0, -1, 0])+coord)
-    assert np.all(cell['NW'] == np.array([-1, 0, 0])+coord)
-    assert np.all(cell['NE'] == np.array([0, 0, -1])+coord)
-    assert np.all(cell['N'] == np.array([-1, 1, -1])+coord)
-    assert np.all(cell['SW'] == np.array([-1, -1, 1])+coord)
-    assert np.all(cell['SE'] == np.array([1, -1, -1])+coord)
+    assert np.all(cell['S'] == np.array([0, 1, 0])+coord)
+    assert np.all(cell['NW'] == np.array([1, 0, 0])+coord)
+    assert np.all(cell['NE'] == np.array([0, 0, 1])+coord)
+    assert np.all(cell['N'] == np.array([1, -1, 1])+coord)
+    assert np.all(cell['SW'] == np.array([1, 1, -1])+coord)
+    assert np.all(cell['SE'] == np.array([-1, 1, 1])+coord)
