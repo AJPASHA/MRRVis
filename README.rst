@@ -77,19 +77,10 @@ For testing, use pytest::
 From the root directory of this repository. These tests cover all core functionality of the library. 
 
 
-SEE ALSO
+See Also
 ========
-    * `Full Documentation <https://github.com/AJPASHA/mrrvis/blob/main/docs/mrrvis%20docs%200.1.0.pdf>`_
+    * `Documentation <https://github.com/AJPASHA/mrrvis/blob/main/docs/mrrvis%20docs%200.1.0.pdf>`_
     * `License <https://github.com/AJPASHA/mrrvis/blob/main/LICENSE>`_
-
-
-Credits
--------
-This package was created by Alexander Pasha at the University of Liverpool, 
-under the supervision of Othon Michail
-
-
-
 
 This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
 
