@@ -1,14 +1,6 @@
 mrrvis package
 ==============
 
-Subpackages
------------
-
-.. toctree::
-   :maxdepth: 4
-
-   mrrvis.movesets
-
 Submodules
 ----------
 
@@ -67,6 +59,15 @@ mrrvis.vistools module
    :members:
    :undoc-members:
    :show-inheritance:
+   
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   mrrvis.movesets
 
 Module contents
 ---------------

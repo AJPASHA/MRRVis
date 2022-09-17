@@ -31,7 +31,7 @@ release = '0.1.0'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc'
+    'sphinx.ext.autodoc', 'sphinx.ext.napoleon'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -55,11 +55,3 @@ html_theme = 'alabaster'
 html_static_path = ['_static']
 
 
-# make sure to include __init__ methods in documentation
-def skip(app, what, name, obj, would_skip, options):
-    if name == "__init__":
-        return False
-    return would_skip
-
-def setup(app):
-    app.connect("autodoc-skip-member", skip)

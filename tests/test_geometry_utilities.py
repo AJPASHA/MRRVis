@@ -111,7 +111,6 @@ def test_rotation_matrices():
     assert np.all(r_from_normal(angle,np.array([0,1,0])) == _3Dy_rotation_matrix(angle))
     assert np.all(r_from_normal(angle,np.array([0,0,1])) == _3Dz_rotation_matrix(angle))
 
-    assert np.all(r_from_normal(angle, [1,1,0]) == np.add(r_from_normal(angle, [1,0,0]), r_from_normal(angle, [0,1,0])))
 
 def test_cube_rot_generator():
     base_arr = np.array([[1,0,0],[0,1,0],[0,0,1]])

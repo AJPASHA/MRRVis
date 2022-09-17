@@ -3,7 +3,6 @@
 import numpy as np
 
 from mrrvis.move import Move, Transformation, Collision, CollisionCase
-
 from mrrvis.cell import Square
 from typing import List
 import warnings

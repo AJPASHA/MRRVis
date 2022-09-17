@@ -1,23 +1,22 @@
-"""contains the Move class and its dependencies
+"""contains the Move class and its dependancies
 
 Move is a callable object which produces a new graph configuration if possible or returns None if not.
 
 CollisionCheck is a NamedTuple which contains two fields:
-    empty: the locations which need to be empty for a move to be feasible
-    full: the locations which need to be full for a move to be feasible
+    - empty: the locations which need to be empty for a move to be feasible
+    - full: the locations which need to be full for a move to be feasible
 CollisionCheck represents a single collision case for a move, one move can contain multiple collision cases
 
 Transformation is a NamedTuple which contains three fields:
-    location: the index of the module to be moved
-    translation: the translation vector of the move
-    collisions: a list of CollisionCheck objects
-Transformation represents a single module transformation, one move can contain multiple transformations if more than 
-    one module is relocated
+    - location: the index of the module to be moved
+    - translation: the translation vector of the move
+    - collisions: a list of CollisionCheck objects
+Transformation represents a single module transformation, one move can contain multiple transformations if more than one module is relocated
 
 Checkwrapper is a way to wrap a candidate configuration so that additional checks can be made upon it for testing the validity
-    of the resulting move
-    it simply takes a ConfigurationGraph as a value, wraps it and allows checks to be made on its' feasibility
-    these checks are simply functions which take a graph as their only argument and return a boolean
+    - of the resulting move
+    - it simply takes a ConfigurationGraph as a value, wraps it and allows checks to be made on its' feasibility
+    - these checks are simply functions which take a graph as their only argument and return a boolean
 
 """
 
@@ -32,17 +31,34 @@ import warnings
 
 
 class CollisionCase(NamedTuple):
-    """A single collision case"""
+    """A collision case
+    Parameters
+    ----------
+    empty: ndarray
+        the array of coordinates which need to be empty for the case to be true
+    full: ndarray
+        the array of coordinates which need to be full for the case to be true
+    
+    """
     empty: np.ndarray
     full: np.ndarray
 
     def rotate(self, turns, base_angle=np.pi/2, around:np.ndarray=None, axis=None) -> 'CollisionCase':
         """rotate both arrays in the collision object
-        :param turns: the number of times the base angle to rotate by (counter clockwise)
-        :param base_angle: the angle per turn
-        :param around: the coordinate to rotate around
-        :param axis: the axis or normal vector to rotate around
-        :type axis: str or np.ndarray
+        
+        Parameters
+        ----------
+        turns: int
+            the number of times the base angle to rotate by (counter clockwise)
+        base_angle: float
+            the angle to rotate per turn
+        around: ndarray, optional
+            the coordinate to rotate around
+        axis: str 
+            the axis string (some combination of ['x','y','z']) or normal vector to rotate around
+
+        Notes
+        -----
         This comes in handy when we need to rotate a basic collision example around a compass for a move
         """
         return CollisionCase(
@@ -52,8 +68,16 @@ class CollisionCase(NamedTuple):
 
     def evaluate_case(self, graph: ConfigurationGraph, ) -> bool:
         """evaluate collision for this case
-        :param graph: graph to check collision against
-        :return: a bool showing true if no collision detected
+
+        Parameters
+        ----------
+        graph: Configuration Graph
+            graph to check collision against
+        
+        Returns
+        --------
+        bool
+            true if no collision detected
         """
 
         empty = self.empty
@@ -80,9 +104,23 @@ class CollisionCase(NamedTuple):
 
 
 class Collision(NamedTuple):
-    """a collection of collision cases which have some evaluation rule when called
-    :param cases: the collection of cases to evaluate
-    :param eval_rule: the rule governing the evaluation of this collision"""
+    """a collection of collision cases which can be evaluated with a number of different behaviours
+    
+    Parameters
+    ----------
+    cases: list
+        the collection of cases to evaluate
+    eval_rule: {'or','and', 'xor'}
+        the rule governing the evaluation of this collision 
+
+    Notes
+    -----
+    A Collision is feasible if the list of collision cases meets the given condition:
+            'or' means that the collision is feasible if any case is true
+            'xor' means that the collision is feasible if exactly one case is true
+            'and' means that the collision is feasible if all cases are True
+        
+    """
     cases: List[CollisionCase]
     eval_rule: Literal['or','and','xor']
 
@@ -115,9 +153,14 @@ class Collision(NamedTuple):
 class Transformation(NamedTuple):
     """The transformation and collision information of a single module in a transaction
 
-    :param location: the module that is being affected
-    :param transformation: the resulting location of the module(s) (can include replication)
-    :param collision: the Collision object for this transformation
+    Parameters
+    ----------
+    location: ndarray
+        the coordinates of the module that is being transformed
+    transformation: ndarray
+        the resulting location of the module(s) (can include replication by inputting a 2D array here)
+    collision: Collision
+        The Collision object to evaluate for this transformation
     """
     location: np.ndarray
     transformation: np.ndarray
@@ -125,37 +168,47 @@ class Transformation(NamedTuple):
 
 
 class Checkwrapper:
-    def __init__(self, value: ConfigurationGraph) -> None:
-        """wrap a configuration graph as a checkwrapper
-        The CheckWrapper object allows for checks on the validity of a configuration to be pipelined, 
-        such that if one check fails and the move in fact has no value, we can skip through the rest of the pipeline without issue
-        
-        :param value: the graph to be wrapped
-        attributes:
-            value: the graph within the wrapper
-        methods:
-            get: return the value
-            __call__: returns self.get
-            bind: bind a function to the value, where if the function returns true, the value is unchanged, but if false
-                self.value becomes None as the configuration is infeasible
+    """Wrap a ConfigurationGraph in this object to pipeline checks on the feasibility of that configuration
     
-        A variation on the Failure Monad design pattern
-        which allows us to pipeline checks on the feasibility of a configuration
+    Parameters
+    ----------
+    value: ConfigurationGraph
+        The graph to be wrapped
+    
+    Attributes
+    ----------
+    value: ConfigurationGraph
+        The graph within the wrapper
+    
+    Notes
+    -----
+    CheckWrapper is a variation on the Failure Monad design pattern which allows us to pipeline checks on the feasibility of a configuration.
 
-        a useful explanation is given at
-        https://medium.com/swlh/monads-in-python-e3c9592285d6
-        """
+    a useful explanation is given at
+    https://medium.com/swlh/monads-in-python-e3c9592285d6
+    """
+    def __init__(self, value: ConfigurationGraph) -> None:
         self.value = value
 
-    def get(self):
+    def unwrap(self):
         "get the unwrapped value"
         return self.value
 
     def bind(self, f: callable) -> 'Checkwrapper':
-        """Bind any function that takes a ConfigurationGraph and returns a boolean
-        :param f: the function to bind
-        :return: the checkwrapper after the bound function
+        """Bind any function that takes a ConfigurationGraph and returns a boolean to the wrapped value
 
+        Parameters
+        ----------
+        f: func
+            the function to bind
+
+        Returns
+        -------
+        CheckWrapper
+            A new CheckWrapper which contains a value if the move still appears feasible
+
+        Notes
+        -----
         if true, then return the current wrapped value of the graph
         if false, then return wrapped None
         if a previous check has failed and the value is already None, then return None again
@@ -175,10 +228,37 @@ class Checkwrapper:
             raise TypeError(f"failed with exception \n{e}. \n\
             Functions passed into the checkwrapper have to take a graph as input and return a bool") from e
     def __call__(self):
-        return self.get()
+        return self.unwrap()
 
 
 class Move(ABC):
+    """A Move which can be called as a function to generate a new configuration, if one would exist for the move so defined
+    
+    Parameters
+    ----------
+    configuration: ConfigurationGraph
+        The configuration graph to be edited
+    module: int or ndarray
+        The module to be moved
+    direction: str 
+        The direction for the move to be carried out in (see self.__class__.compass to get the compass of this move)
+    additional_checks: list of funcs
+        environment specific checks that the resulting configuration would have to take, on top of those already defined by the move.
+        such should be passed as a list of functions where those functions take a Configuration graph as input and return a bool as output
+    verbose: bool 
+        whether to provide warning information to explain the infeasability of a move
+
+    Attributes
+    ----------
+    checklist: list of funcs 
+        the list of checks to be carried out upon the candidate configuration
+
+    Methods
+    -------
+    __call__()
+        evaluate the move's feasibility and return the resulting configuration, if one exists
+
+    """
 
     @classmethod
     @property
@@ -195,32 +275,8 @@ class Move(ABC):
         pass
 
 
-
-
     def __init__(self, configuration: ConfigurationGraph, module: Union[int, np.ndarray], direction:str, additional_checks:List[Callable]=None, verbose=False, check_connectivity=True):
-        """A callable object which can be used to safely move objects within a configuration, subject to rules set by the environment
-        
-        arguments:
-        :param configuration: The configuration graph to be edited
-        :param module: the module to be moved
-        :param direction: the direction for the move to be carried out in (see self.__class__.compass to get the compass of this move)
-        :param additional_checks: environment specific checks that the resulting configuration would have to take, on top of those already defined by the move.
-            such should be passed as a list of functions where those functions take a Configuration graph as input and return a bool as output
-        :param verbose: whether to provide warning information to explain the infeasability of a move
 
-        (methods and attributes marked S need to be implemented in the concrete subclass)
-        methods:
-            S generate_collisions: builds a Collision object for a single transformation
-            S generate_transaction: builds a transaction attribute which is a list of Task objects which govern the local feasibility of the transformation
-            attempt_transaction: takes the attribute
-            evaluate_checklist: evaluate global feasibility of the resulting configuration using the checklist
-        attributes:
-            S compass: the valid directions for the move
-            S cell_type: the type of cell that the move is valid for
-            S checklist: the list of checks to be carried out upon the candidate configuration
-        """
-
-            
         if type(module) == int: #get the module location in the graph if the index was given
             try:
                 module = configuration[module]
@@ -252,26 +308,58 @@ class Move(ABC):
         self.verbose = verbose
 
     @abstractmethod
-    def generate_collision(self, module)-> Collision:
+    def generate_collision(self, module:np.ndarray)-> Collision:
         """Generate the collision for a single transformation
+
         must be implemented in subclass
-        remark. Collisions are objects containing a list of CollisionCase Objects and a collision rule, which affects the evaluation
+        
+        Parameters
+        ----------
+        module: ndarray
+            The coordinates of the module to generate the collision for
+
+        Returns
+        -------
+        Collision
+            A collision to evaluate
+
+        Notes
+        -----
+        must be implemented in subclass
+        
+        Collisions are objects containing a list of CollisionCase Objects and a collision rule, which affects the evaluation
+
         """
         pass
     @abstractmethod
     def generate_transaction(self)-> Iterable[Transformation]:
         """generate a list of Transformation objects which need to be completed
-        must be implemented in subclass
+        
 
-        recall, a task contains a module 
+        Returns
+        -------
+        list of Transformation
+            The list of Transformations to carry out 
+
+        Notes
+        -----
+        must be implemented in subclass
         """
         pass
 
 
     def attempt_transaction(self, transaction: Iterable[Transformation]) -> Union[ConfigurationGraph, None]:
         """attempt to construct a new graph from the transaction
-        :param transaction: the list of transformations to be performed in this move
-        :return: the graph after this transaction is applied or none
+        
+        Parameters
+        ----------
+        transaction: list of Transformations
+            the list of transformations to be performed in this move
+        
+        Returns
+        -------
+        ConfigurationGraph or None
+            the graph after this transaction is applied or none
         """
         if transaction is None:
             # This indicates that the transaction is invalid
@@ -295,15 +383,22 @@ class Move(ABC):
 
     def evaluate_checklist(self, candidate: ConfigurationGraph):
         """evaluate the checklist on the resulting configuration
-        :param candidate: the graph to be evaluated
-        :return: candidate if feasible or None, if the move is infeasible
+
+        Parameters
+        ----------
+        candidate: ConfigurationGraph the graph to be evaluated
+        
+        Returns
+        -------
+        ConfigurationGraph or None
+            candidate if feasible or None, if the move is infeasible
         """
         wrapped_value = Checkwrapper(candidate)
 
         for check in self.checklist:
             wrapped_value = wrapped_value.bind(check)
 
-        return wrapped_value.get()
+        return wrapped_value.unwrap()
         
 
     def evaluate(self)-> Union[ConfigurationGraph, None]:
@@ -311,10 +406,12 @@ class Move(ABC):
 
         :return: graph after having completed the move, or None if the move is infeasible
 
+        Notes
+        -----
         to do this we need to complete three steps:
-        1. generate a transaction (implemented by subclasses)
-        2. attempt transaction, to assert the local feasibility of the move
-        3. evaluate the checklist on the resulting configuration
+            1. generate a transaction (implemented by subclasses)
+            2. attempt transaction, to assert the local feasibility of the move
+            3. evaluate the checklist on the resulting configuration
         """
         if self.module not in self.config:  
             warnings.warn('module not in graph')

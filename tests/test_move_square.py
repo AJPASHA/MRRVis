@@ -55,7 +55,7 @@ def test_CheckWrapper():
 
     graph = ConfigurationGraph(Square, vertices=np.array([[0, 0], [0, 1], [1, 0], [1, 1], [2, 0], [2, 1]]))
     wrapped_graph = Checkwrapper(graph)
-    assert wrapped_graph.bind(vert_connected).get() is not None
+    assert wrapped_graph.bind(vert_connected).unwrap() is not None
 
 
     rm_vertices = np.array([[1,0],[1,1]])

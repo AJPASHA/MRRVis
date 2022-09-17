@@ -1,5 +1,4 @@
-"""core visualisation tools for visualising configurations
-provides the following functions:
+"""tools for visualising configurations
     
 hex_to_cart:
     convert hexagonal cubic coordinates to cartesian coordinates
@@ -38,8 +37,15 @@ sqrt3 = np.sqrt(3)
 def hex_to_cart(vertices: np.ndarray) -> np.ndarray:
     """convert an array of hexagon cubic coordinates to cartesian coordinates
 
-    :param vertices: a set of hexagonal cubic coords expressed as a numpy array
-    :return: an array of the converted vertices
+    Parameters
+    ----------
+    vertices: ndarray
+        a set of hexagonal cubic coords expressed as a numpy array
+    
+    Returns
+    -------
+    ndarray
+        an array of the converted vertices
     """
     x= vertices[:,0]
     y= 2.*np.sin(np.pi/3)*(vertices[:,1]-vertices[:,2])/3.
@@ -49,9 +55,17 @@ def hex_to_cart(vertices: np.ndarray) -> np.ndarray:
 def tri_to_cart(vertices: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """convert an array of Triangle cubic coordinates to cartesian coordinates
     
-    :param vertices: a set of hexagonal cubic coords expressed as a numpy array
-    :return: an array of the converted vertices
-    :return: a vector of whether each vertex(row) of vertices corresponds to an upward pointing triangle
+    Parameters
+    ----------
+    vertices: ndarray
+        a set of hexagonal cubic coords expressed as a numpy array
+
+    Returns
+    -------
+    ndarray
+        an array of the converted vertices
+    ndarray
+        a vector of whether each vertex(row) of vertices corresponds to an upward pointing triangle
     """
     point_up = np.apply_along_axis(lambda vi: True if sum(vi)==0 else False, axis=1, arr=vertices)
 
@@ -70,9 +84,18 @@ def tri_to_cart(vertices: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 def square_patch_generator(vertices: np.ndarray, **style) -> Generator[list, None, None]:
     """generator for square patches from a list of two dimensional vertices
 
-    :param vertices: the vertices to generate patches for
-    :param style: any matplotlib kwargs for styling the patches
-    :return: a generator containing all of the patches
+    Parameters
+    ----------
+    vertices: ndarray
+        the vertices to generate patches for
+    style: dict
+        any matplotlib kwargs for styling the patches
+    
+    Yields
+    ------
+    matplotlib.patches.RegularPolygon
+        A polygon situated at an input vertex
+
     """
 
         
@@ -87,9 +110,18 @@ def square_patch_generator(vertices: np.ndarray, **style) -> Generator[list, Non
 
 def hex_patch_generator(vertices: np.ndarray, **style) -> Generator[list, None, None]:
     """generator for hex patches from a list of two dimensional vertices
-    :param vertices: the vertices to generate patches for
-    :param style: any matplotlib kwargs for styling the patches
-    :return: a generator containing all of the patches
+
+    Parameters
+    ----------
+    vertices: ndarray
+        the vertices to generate patches for
+    style: dict
+        any matplotlib kwargs for styling the patches
+    
+    Yields
+    ------
+    matplotlib.patches.RegularPolygon
+        A polygon situated at an input vertex
     """
     vertices = hex_to_cart(vertices)
 
@@ -105,9 +137,18 @@ def hex_patch_generator(vertices: np.ndarray, **style) -> Generator[list, None, 
 
 def tri_patch_generator(vertices:np.ndarray, **style) -> Generator[list, None,None]:
     """generator for tri patches from a list of two dimensional vertices
-    :param vertices: the vertices to generate patches for
-    :param style: any matplotlib kwargs for styling the patches
-    :return: a generator containing all of the patches
+
+    Parameters
+    ----------
+    vertices: ndarray
+        the vertices to generate patches for
+    style: dict
+        any matplotlib kwargs for styling the patches
+    
+    Yields
+    ------
+    matplotlib.patches.RegularPolygon
+        A polygon situated at an input vertex
     """
     vertices, point_up = tri_to_cart(vertices)
 
@@ -124,11 +165,17 @@ def tri_patch_generator(vertices:np.ndarray, **style) -> Generator[list, None,No
             **style
         )
 
-def generate_voxels(vertices:np.ndarray)-> np.ndarray:
+def make_voxels(vertices:np.ndarray)-> np.ndarray:
     """generate voxel array for cube visualisation
     
-    :param vertices: the vertices to be voxelised
-    :return: the voxelised array
+    Parameters
+    ----------
+    vertices: ndarray
+        the vertices to be voxelised
+    Returns
+    -------
+    ndarray
+        the voxelised array
     """
 
     X,Y,Z = vertices[:,0],vertices[:,1],vertices[:,2]
@@ -162,13 +209,21 @@ patch_generators = { # associates cell types with patch generators
 
 def plot_configuration(configuration: ConfigurationGraph,  show=True, save=False, filepath=None,axes=False, **style) -> None:
     """Plot a configuration with matplotlib
-    params:
-    :param configuration: the graph to visualise
-    :param show: whether to show the resulting graph
-    :param save: whether to save the resulting graph
-    :param filepath: the filepath for the graph when saving
-    :param axes: whether to show the axes
-    :param style: any matplotlib kwargs    
+    
+    Parameters
+    ----------
+    configuration: ConfigurationGraph
+        the graph to visualise
+    show: bool
+        whether to show the resulting graph
+    save: bool
+        whether to save the resulting graph
+    filepath: str
+        the filepath for the graph when saving
+    axes: bool
+        whether to show the axes
+    style: dict
+        any matplotlib kwargs    
     """
     if len(style) ==0:
         style = default_style
@@ -179,7 +234,7 @@ def plot_configuration(configuration: ConfigurationGraph,  show=True, save=False
     fig = plt.figure(figsize=(5, 5))
     if cell_name =='Cube': # generate a 3D plot from voxel matrix 
         ax = plt.axes(projection='3d')
-        voxels = generate_voxels(vertices)
+        voxels = make_voxels(vertices)
         ax.voxels(voxels, **style)
     else:   # generate a 2D plot from patches
         ax = fig.add_subplot()
@@ -200,18 +255,29 @@ def plot_configuration(configuration: ConfigurationGraph,  show=True, save=False
 
 def plot_history(history: History, speed:int= 200, show=True, save=False, filepath=None, **style) -> str:
     """Plot a history object as an animation with matplotlib: currently only works for 2D lattices (hex, square, tri)
-    params:
-    :param history: the history to animate
-    :param speed: the length of each frame in milliseconds
-    :param show: whether to show the resulting graph
-    :param save: whether to save the resulting graph
-    :param filepath: the filepath for the graph when saving
-    :param axes: whether to show the axes
-    :param style: any matplotlib kwargs    
-    returns:
-    :return: if show is set to true, then it returns an html representation of the video, 
     
-    remark. in iPython, use iPython.display.HTML(plot_history(...,show=true,...)) to turn this into an inline video.
+    Parameters
+    ----------
+    history: mrrvis.history.History 
+        the history to animate
+    speed: int
+        the length of each frame in milliseconds
+    show: bool
+        whether to show the resulting graph
+    save: bool
+        whether to save the resulting graph
+    filepath: str
+        the filepath for the graph when saving
+    axes: bool
+        whether to show the axes
+    style: dict
+        any matplotlib kwargs    
+   
+    Returns
+    -------
+    str
+        if show is set to true, then it returns an html representation of the video, 
+        remark. in iPython, use iPython.display.HTML(plot_history(...,show=true,...)) to turn this into an inline video.
     """
 
     if len(style) == 0:

@@ -1,18 +1,32 @@
-"""defines a history object for storing a series of configurations"""
+"""The history module defines the History object, which stores a sequence of configurations"""
 from mrrvis.configuration import ConfigurationGraph
-from mrrvis.move import Move
 from collections import deque
 
 class History:
-    def __init__(self, state_0: ConfigurationGraph):
-        """The history of an environment
-        
+    """A History of Configurations
+    
+    Parameters
+    ----------
+    state_0: ConfigurationGraph
+        The initial configuration
+    
+    Attributes
+    ----------
+    history: collections.deque
+        A queue of the configuration history
+    cell_type: str
+        The type of cell used by this object's configurations
 
-        :param state_0: the initial state of the environment system
-        attributes:
-        :param history: a queue of the states of the system
-        :param cell_type: the type of cell which the graph uses
-        """
+    Methods
+    -------
+    __iter__()
+        Iterate through history 
+    __reversed__()
+        obtain the reverse of the history
+    __contains__(other)    
+
+    """
+    def __init__(self, state_0: ConfigurationGraph):
         self.history = deque() # this might need some buffer size setting in the future
         self.history.append(state_0)
         self.cell_type = state_0.Cell.__name__
@@ -20,28 +34,36 @@ class History:
     def t(self):
         """The amount of items (time steps) in the history"""
         return len(self.history)
+
     def append(self, state: ConfigurationGraph):
         """Append a move to the history
-
-        :param state: the state to add
+        
+        Parameters
+        ----------
+        state: ConfigurationGraph
+            the state to add
         """
 
         self.history.append(state)
 
-    def __len__(self):
-        return len(self.history)
 
     def __getitem__(self, item):
         return self.history[item]
 
-    def revert(self, n: int = 1):
+    def revert(self, k: int = 1):
         """revert the history by n steps
-        params: 
-        :param n: the number of steps to revert by
-        returns:
-        :return: The last state after the reversion
+
+        Parameters
+        ---------- 
+        k:  int
+            the number of steps to revert by
+        
+        Returns
+        -------
+        ConfigurationGraph
+            The last state after the reversion
         """
-        for _ in range(n):
+        for _ in range(k):
             self.history.pop()
         return self.history[-1]
 

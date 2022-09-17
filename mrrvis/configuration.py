@@ -1,4 +1,17 @@
-"""This module contains the module graph class"""
+"""The configuration Module defines the ConfigurationGraph object 
+and some operations which can be performed on ConfigurationGraphs
+
+The configuration graph is a representation of a configuration in an MRR system.
+It represents the collection of vertices, which are the centroids of the cells in the system,
+A cell type which shows how to interpret this set of vertices as a shape,
+the level of connectivity at which two cells are considered connected
+An edge set constructed from the above information.
+
+It also allows us to perform two essential operations:
+    - Check if there exists an isomorphic relationship between two different configurations
+    - Check to see if a configuration forms a single connected component
+
+"""
 
 from collections import deque
 from typing import Iterable, Literal, Union
@@ -79,29 +92,69 @@ def _init_vertices(vertices: Union[np.ndarray, None], Cell: Cell):
 
 
 class ConfigurationGraph:
+    """A graph based representation of a reconfigurable robotics system
+    
+    Parameters
+    ----------
+    CellPrototype: Cell or {'Square', 'Cube', 'Tri', 'Hex'}
+        The type of cell lattice (or alias thereof) this graph represents
+    vertices: np.ndarray or array-like object, optional
+        The vertices in the configuration
+    connect_type: {'edge', 'vertex', 'face'}
+        The level of connectivity required for two cells to be considered neighbors
+
+    Raises
+    ------
+    KeyError 
+        if cellPrototype is invalid
+    ValueError
+        if connect_type is not suitable for the given cell_type
+    
+    Warns
+    -----
+    UserWarning
+        called whenever one of the vertices in the vertices array is invalid
+
+    Attributes
+    ----------
+    vertices: ndarray
+        the set of vertices as an array where each row is a coordinate
+
+    
+    Methods
+    -------
+    __eq__(other)
+        (==) tests for isomorphism between this graph and another
+    __contains__(other)
+        (in) tests to see if the other item, a Sequence, is a vertex in self.V
+    __getitem__(key)
+        ConfigurationGraph()[key] obtains item from self.V by an integer index
+   
+    See Also
+    --------
+    Cell: mrrvis.cell.Cell
+    """
     def __init__(self, CellPrototype: Literal['Square', 'Cube', 'Tri', 'Hex'], vertices: np.ndarray = None, connect_type='edge') -> None:
-        """Create a module graph object
-
-        :param CellPrototype: the cell class to use for the graph
-        :type CellPrototype: Literal['Square', 'Cube', 'Tri', 'Hex'] or mrrvis.Cell subclass
-        :param vertices: the vertices of the graph, if None, an empty set of vertices will be generated
-        :type vertices: np.ndarray or list of lists
-        :param connect_type: the type of connectivity to use for the graph, can be 'face', 'edge' or 'vertex' 
-                depending on the type of cell the graph is based on*
-
-        * to check this for a Cell, use the Cell.connectivity_types property
-
-        note: the default connectivity is edge, as this is the only type which is universal to all module types
-        """
-
-        self.Cell: Cell = _init_Cell(CellPrototype)
-        self.connect_type = _init_connect_type(connect_type,self.Cell)
-        self.vertices = _init_vertices(vertices, self.Cell)
+        self.Cell: Cell = _init_Cell(CellPrototype)     # identify the cell type
+        self.connect_type = _init_connect_type(connect_type,self.Cell) #identify the connectivity type
+        self.vertices = _init_vertices(vertices, self.Cell) #   verify the vertices
 
     def get_index(self, vertex: np.ndarray) -> int:
         """get the index of a vertex in the graph
-        :param vertex: the vertex coordinate in the graph
-        :return: an integer index of the coordinate in self.V
+        
+        Parameters
+        ----------
+        vertex: np.ndarray
+            A vertex, which should be in self.V
+        
+        Warns
+        -----
+        UserWarning
+            If the vertex is not in the graph
+        Returns
+        -------
+        int
+            The index of the vertex in self.V
         """
 
         try:
@@ -114,10 +167,18 @@ class ConfigurationGraph:
     def is_reachable(self, u:int,v:int) -> bool:
         """identifies if there exists a path from the module at index u to index v
         using breadth first search
-        :param u: index of the first cell
-        :param v: index of the other cell
-        :return: bool representing whether or not a path exists
-        used for checking connectivity in graphs
+        
+        Parameters
+        ----------
+        u: int
+            The index of the first module in self.V
+        v: int
+            The index of the second module in self.V
+        
+        Returns
+        -------
+        bool
+            True if there exists a path u ~> v
         """
         if u==v:
             return True
@@ -138,11 +199,22 @@ class ConfigurationGraph:
                     queue.append(i)
 
     def is_connected(self, connectivity:Literal['edge', 'vertex','face']=None)->bool:
-        """test graph connectivity.
-        :param connectivity: the level of connectivity required, depending on self.Cell, could be any of 'edge', 'vertex', 'face' 
-        :return: bool representing the status of graph connectivity
-        This is done by performing a breadth first search of every module from the zeroth module to see
-        if every module is reachable from the zeroth module, if so, then the graph is connected
+        """test graph connectivity
+
+        Performs a breadth first search for a path from the first coordinate in self.V to every
+        other coordinate. is_connected==True if and only if 
+        every cell is_reachable from the first cell
+
+        Parameters
+        ----------
+        connectivity: {'edge', 'vertex','face'}, optional
+            The level of connectivity required, by default will use this graph's declared cell_type
+        
+        Returns
+        -------
+        bool
+            True if and only if the graph is connected
+
         """
         if connectivity is None:
             connectivity=self.connect_type
@@ -158,13 +230,23 @@ class ConfigurationGraph:
 
 
     def edges_from(self, vertex: np.ndarray, connectivity:Literal['edge', 'vertex','face']=None, omit_self=False):
-        """edges which are connected to a particular vertex
-        :param vertex: the coordinate to find edges from
-        :param connectivity: the connectivity level required of neighbors
-        :param omit_self: returns a list of edges if false, or the indices of connecting vertices if true
-        :return: a list of undirected edges if omit_self if False
-        :return: a list of connecting node indices if omit_self
-        :rtype: List[set] or List[int]
+        """find the list of edges which are connected to a particular vertex
+        
+        Parameters
+        ----------
+        vertex: np.ndarray
+            The coordinate to find the edges of 
+        connectivity: {'edge', 'vertex','face'}, optional
+            The level of connectivity at which two cell are considered connected, will default to this graph's connectivity
+        omit_self: bool, default False
+            Selects return type. If False will provide a list of edges represented as sets,
+            if true then return just the list of the indices of the adjoining cells
+        
+        Returns
+        -------
+        list of sets of ints or list of ints
+            if omit_self is true, gives a list of indices, otherwise return a list of edges represented as sets
+
         """
         index = self.get_index
 
@@ -186,6 +268,7 @@ class ConfigurationGraph:
         return neighbors
 
     def edges_from_i(self, index, connectivity=None, omit_self=False):
+        """Obtain the edges from the cell at a given index in self.V"""
 
         vertex = self.vertices[index]
         return self.edges_from(vertex, connectivity, omit_self=omit_self)
@@ -217,17 +300,19 @@ class ConfigurationGraph:
     def isomorphic(self, other: 'ConfigurationGraph') -> bool:
         """Check if two graphs are isomorphic 
 
-        :param other: the graph to compare
-        :return: bool representing whether the two graphs are isomorphic or not
+        Parameters
+        ----------
+        other: ConfigurationGraph
+            Another graph to compare
+        
+        Returns
+        -------
+        bool
+            True if and only if self and other are isomorphic
 
-        accessible as ConfigurationGraph.__eq__
-
-        note, if the graphs are of different connectivity types, this equation will use the type of the first operand
-
-        note, this is currently a brute force method, which is fast enough for two dimensional cell types
-        who's rotation groups have an cardinality equal to the number of vertices in the shape, but slow for cubes.
-        This is because the order of the rotation group of a shape on a 3D discrete lattice is 24, which is still small enough to be brute forced,
-        but in future a more efficient method might need to be considered if possible
+        Notes
+        -----
+        if the graphs are of different connectivity types, this equation will use the type of the first operand
         """
 
         self_verts = self.vertices
@@ -282,19 +367,30 @@ class ConfigurationGraph:
         return False
 
     def add_vertices(self, in_vertices: np.array, check_connectivity=True) -> 'ConfigurationGraph':
-        """
-        Add vertices to the graph
+        """Add vertices to the graph (not in-place)
 
-        :param in_vertices: the vertices to add
-        :param check_connectivity: if true, check if the resulting graph is connected the resulting graph
-        :return: configuration graph with additional vertices
-        :raise ValueError: if in_vertices are of wrong shape
+        Parameters
+        ----------
+        in_vertices: ndarray
+            the vertices to add
+        check_connectivity: bool, default=True
+            if true, check if the resulting graph is connected the resulting graph
 
+        Raises
+        ------
+        ValueError
+            If in_vertices is of the wrong shape for this graph's cell type
 
-        In order for vertices to be valid, they must:
-        1. be of the correct shape,
-        2. be valid coordinates.
-        3. if the graph is required to be connected, then the vertices must form a connected graph when concatenated with existing vertices.
+        Warns
+        -----
+        UserWarning
+            warning is raised if there are invalid cells in in_vertices or if the configuration is disconnected 
+            and check_connectivity==True
+
+        Returns
+        -------
+        ConfigurationGraph
+            The edited graph or, if the connectivity check fails, self
         """
         Cell = self.Cell
         in_vertices = np.array(in_vertices)
@@ -334,20 +430,30 @@ class ConfigurationGraph:
                 else:
                     return new_graph
 
-    def remove_vertices(self, rm_vertices: np.array, check_connectivity=True) -> 'ConfigurationGraph':
-        """
-        Remove vertices in the graph
+    def remove_vertices(self, rm_vertices: np.ndarray, check_connectivity=True) -> 'ConfigurationGraph':
+        """Remove vertices in the graph
 
+        Parameters
+        ----------
+        rm_vertices: ndarray
+            the vertices to remove
+        check_connectivity: bool
+            if true, check if the resulting graph is connected
 
-        :param rm_vertices: the vertices to remove
-        :param check_connectivity: if true, check if the resulting graph is connected
-        :raise ValueError: if in_vertices are of wrong shape
-        :return: the graph with the vertices removed
+        Raises
+        ------
+        ValueError
+            If in_vertices is of the wrong shape for this graph's cell type
 
-        In order for vertices to be removed, they must:
-        1. be of the correct shape.
-        Additionally,
-        2. If the graph is required to be connected, then the reduced graph must be connected.
+        Warns
+        -----
+            warning is raised if the configuration is disconnected 
+            and check_connectivity==True
+
+        Returns
+        -------
+        ConfigurationGraph
+            the graph with the vertices removed, or, if the connectivity check fails, self
         """
 
         Cell = self.Cell
@@ -379,40 +485,52 @@ class ConfigurationGraph:
                 return new_graph
 
     def __eq__(self, other) -> bool:
-        """Check if two graphs are congruent (same edge graphs)
-        Currently does not work for rotational symmetry
-        """
+        """Check isomorphism of two graphs"""
         return self.isomorphic(other)
 
     def __getitem__(self, index):
+        """access vertices as index of ConfigurationGraph"""
         return self.vertices[index]
 
     def __contains__(self, other: Iterable) -> bool:
+        """Check whether a coordinate is in self.V"""
         return other.tolist() in self.vertices.tolist()
-
-
-def equals(graph1: ConfigurationGraph, graph2: ConfigurationGraph) -> bool:
-    """Check if two graphs are equal
-    """
-    return graph1 == graph2
 
 
 def vert_connected(graph: ConfigurationGraph) -> bool:
     """Checks if the graph is vertex connected
-    alias of graph.is_connected('vertex')
+    
+    See Also
+    --------
+    is_connected: ConfigurationGraph.is_connected
+
+    Notes
+    -----
+        this is used for checking moves
     """
     return graph.is_connected('vertex')
 
 
 def edge_connected(graph: ConfigurationGraph) -> bool:
     """checks if the graph is edge connected
-    alias of graph.is_connected('edge')
+    
+    See Also
+    --------
+    is_connected: ConfigurationGraph.is_connected
+
+    Notes
+    -----
+    this is used for checking moves
     """
     return graph.is_connected('edge')
 
 
-def get_index(vertex: np.array, vertices: np.array) -> int:
+def get_index(vertex: np.array, vertices: np.ndarray) -> int:
     """get the index of a vertex in a set of vertices
+
+    See Also
+    --------
+    get_index: graph.get_index
     """
     # This solution could be improved to handle multiple vertices in a single call, using a vectorised method
     try:
@@ -421,9 +539,20 @@ def get_index(vertex: np.array, vertices: np.array) -> int:
         return None
 
 
-def min_coord(vertices: np.array) -> np.array:
+def min_coord(vertices: np.ndarray) -> np.ndarray:
     """find the canonical minimum coordinate in a set of vertices
 
+    Parameters
+    ----------
+    vertices: ndarray
+
+    Returns
+    -------
+    ndarray
+        The minimum coordinate in the input array
+
+    Notes
+    -----
     This minimum works by finding the smallest x, smallest y and then smallest z in vertices
     """
     # we perform this iteratively to deal with the existence of multiple minimum coordinates
@@ -437,12 +566,21 @@ def min_coord(vertices: np.array) -> np.array:
             return vertices[min_index]
 
 
-def max_coord(vertices: np.array) -> np.array:
+def max_coord(vertices: np.ndarray) -> np.ndarray:
     """find the maximum coordinate in a set of vertices
 
-    parameters:
-    :param vertices: the set of vertices to search
-    :return: the index of the vertex in the set of vertices
+    Parameters
+    ----------
+    vertices: ndarray
+
+    Returns
+    -------
+    ndarray
+        The maximum coordinate in the input array
+
+    Notes
+    -----
+    This maximum works by finding the largest x, largest y and then largest z in vertices
     """
     # we perform this iteratively to deal with the existence of multiple minimum coordinates
     # depending on the rotation and shape
@@ -455,36 +593,22 @@ def max_coord(vertices: np.array) -> np.array:
             return vertices[max_index]
 
 
-def add_vertices(graph: ConfigurationGraph, in_vertices: np.array, check_connectivity=True) -> ConfigurationGraph:
+def add_vertices(graph: ConfigurationGraph, in_vertices: np.ndarray, check_connectivity=True) -> ConfigurationGraph:
     """Add vertices to the graph
 
-    :param graph: the graph to edit
-    :param in_vertices: the vertices to add
-    :param check_connectivity: if true, check if the resulting graph is connected the resulting graph
-    :return: configuration graph with additional vertices
-    :raise ValueError: if in_vertices are of wrong shape
-
-    In order for vertices to be valid, they must:
-    1. be of the correct shape,
-    2. be valid coordinates.
-    3. if the graph is required to be connected, then the vertices must form a connected graph when concatenated with existing vertices.
+    See Also
+    --------
+    add_vertices: ConfigurationGraph.add_vertices
     """
     return graph.add_vertices(in_vertices, check_connectivity)
 
 
-def remove_vertices(graph: ConfigurationGraph, rm_vertices: np.array, check_connectivity=True) -> ConfigurationGraph:
+def remove_vertices(graph: ConfigurationGraph, rm_vertices: np.ndarray, check_connectivity=True) -> ConfigurationGraph:
     """
     Remove vertices in the graph
 
-    :param graph: the graph to edit
-    :param rm_vertices: the vertices to remove
-    :param check_connectivity: if true, check if the resulting graph is connected
-    :raise ValueError: if in_vertices are of wrong shape
-    :return: the graph with the vertices removed
-
-    In order for vertices to be removed, they must:
-    1. be of the correct shape.
-    Additionally,
-    2. If the graph is required to be connected, then the reduced graph must be connected.
+    See Also
+    --------
+    rm_vertices: ConfigurationGraph.rm_vertices
     """
     return graph.remove_vertices(rm_vertices, check_connectivity)

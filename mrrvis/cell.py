@@ -1,7 +1,12 @@
-"""Defines the abstract class Cell and its 4 concrete subclasses:
-    Square, Hex, Tri, and Cube.
-    The Cell class's concrete types are the basis for generating the information for lattice operations 
-    in the configuration Graph
+"""The cell module defines the Cell abstract class and 4 subclasses:
+Square, Hex, Tri and Cube.
+
+The Cell subclasses define the shape and characteristics of a module in a lattice
+bearing that name. For instance, if there is a square lattice then a cell.Square(coord)
+object would know the location of adjacent cells, 
+given a connectivity level ('edge' or 'vertex'), in this case assume 'edge',
+and the 'compass' with which those neighbors are related to this cell, which for edge
+connected square cells is ['N','W','S','E'].
 """
 
 from abc import ABC, abstractmethod
@@ -11,12 +16,30 @@ import numpy as np
 
 
 class Cell(ABC):
+    """A Cell class
+    
+    Parameters
+    ----------
+    coord: np.ndarray or list or tuple
+        The coordinate of the cell
+
+    Raises
+    ------
+    ValueError
+        If coord is not a valid coordinate of the lattice used by
+        this subclass
+    
+    Attributes
+    ----------
+    coord: np.ndarray
+        The coordinate of the cell
+
+    Methods
+    -------
+    __getitem__(key)
+        access adjacent cell coordinates as keys of this object
+    """
     def __init__(self, coord: np.ndarray) -> None:
-        """A Cell Object
-        :param coord: the coordinate position of the cell
-        :type coord: np.ndarray or list[int]
-        :raise ValueError: if the coord is not in the lattice
-        """
         coord = np.array(coord)
 
         # test that input coordinate is valid
@@ -25,24 +48,13 @@ class Cell(ABC):
 
         self.coord = coord.astype(int)
 
-    @classmethod
-    @abstractmethod
-    def adjacent_transformations(cls, connectivity, point_up=None) -> dict:
-        """make a dictionary of the neighbors to a hypothetical cell at the origin
-        :param connectivity: str: the connectivity type for the lattice
-        :param point_up: bool: (for triangles) whether this cell points up
-        :return: the dictionary of adjacent transformations
 
-        """
-        pass
 
     @classmethod
     @property
     @abstractmethod
     def connectivity_types(self) -> set:
-        """a list of the connectivity types supported by the cell
-        :return: a set of connectivity types
-        """
+        """a list of the connectivity types supported by the cell"""
         pass
 
     @classmethod
@@ -62,37 +74,70 @@ class Cell(ABC):
     @classmethod
     @property
     def rotation_angle(cls) -> float:
-        """The rotation angle of the cell.
-        note. valid for all space-filling lattices ('Square', 'Tri', 'Hex', 'Cube').
-        """
+        """The rotation angle of the cell."""
+
         if cls.dimensions == 2:     
             connectivity = 'edge'
         if cls.dimensions == 3:
             connectivity = 'face'
-        return np.pi/(len(cls.adjacent_transformations(connectivity, cls.point_up(np.array([0, 0, 0]))))/cls.dimensions)
 
+        if cls.__name__ == 'Tri':
+            n_neighbors = len(cls.adjacent_transformations(connectivity, cls.point_up(np.array([0, 0, 0]))))
+        else:
+            n_neighbors = len(cls.adjacent_transformations(connectivity))
+        return np.pi/(n_neighbors/cls.dimensions)
+    
     @classmethod
-    def point_up(cls, coord=None) -> bool:
-        """Returns True if the cell is pointing up, False if pointing down,
-        only implemented for triangular cells."""
-        return True
+    @abstractmethod
+    def adjacent_transformations(cls, connectivity:str) -> dict:
+        """Get the translations required to go to neighboring cells
+
+        Parameters
+        ----------
+        connectivity: {'edge', 'vertex', 'face'}
+            The level of connectivity required for a cell to be considered adjacent
+
+        Returns
+        -------
+        dict of np.ndarrays
+            the translation to the adjacent cell indexed by compass direction
+        
+        Raises
+        ------
+        ValueError
+            if connectivity is not in this class.connectivity_types
+        """
+        pass
+
 
     def adjacents(self, connectivity=None) -> dict:
-        """the neighbors of the cell
-        :param connectivity: the connectivity type of the cell, 
-        connectivity will default to vertex except for hexagons where edge is the only valid type
-        :type connectivity: None or Literal['edge', 'vertex', 'face']
-        :return: adjacents to the cell coordinate given the connectivity for all compass directions
-        :rtype: dict[str, np.ndarray]
+        """Get the neighbors of this cell
+        
+        Parameters
+        ----------
+        connectivity: {'edge', 'vertex', 'face'}, optional
+            The level of connectivity required for a cell to be considered adjacent
+            if left blank, will use the broadest set allowed: face>vertex>edge
+
+        Returns
+        -------
+        dict of np.ndarrays
+            A dictionary of adjacent cells indexed by compass directions
         """
         if connectivity is None:
+            if 'face' in self.connectivity_types:
+                connectivity='face'
             if 'vertex' in self.connectivity_types:
                 connectivity = 'vertex'
             else:
                 connectivity = 'edge'
 
-        base_adjacents = self.adjacent_transformations(
-            connectivity, self.point_up(self.coord))
+        if self.__class__.__name__ =='Tri':
+            base_adjacents = self.adjacent_transformations(
+                connectivity, self.point_up(self.coord))
+        else:
+            base_adjacents = self.adjacent_transformations(connectivity)
+
 
         # return a dictionary of the neighbors for the input coordinate
         return {key: self.coord+value for key, value in base_adjacents.items()}
@@ -100,11 +145,18 @@ class Cell(ABC):
     @classmethod
     @abstractmethod
     def valid_coord(cls, coord: np.ndarray) -> bool:
-        """Returns True if the coord is valid for the cell type
-        :param coord: the coordinate to test
-        :type coord: np.ndarray
-        :return: the truth value of the coord's validity
-        :rtype: bool
+        """Verify that a coordinate exists in the cell lattice
+
+        Parameters
+        ----------
+        coord: np.ndarray or list or tuple
+            The coordinate of the cell to check
+        
+        Returns
+        -------
+        bool
+            Is True if the cell is a valid coord
+
         """
         coord = np.array(coord)
 
@@ -118,10 +170,7 @@ class Cell(ABC):
         return True
 
     def __getitem__(self, key: str)-> np.ndarray:
-        """Obtain an item from the neighbor dictionary by cardinal direction
-        :param key: the cardinal direction of the neighbor
-        :return: the coordinate of the neighbor
-        """
+        """reference adjacents as keys of the cell object"""
 
         try:
             return self.adjacents()[key.upper()]
@@ -131,8 +180,16 @@ class Cell(ABC):
     @classmethod
     def compass(cls, connectivity='edge'):
         """The keys which are available for a given connectivity level
-        :param connectivity: The connectivity rule for defining adjacency
-        :return: a list of directions
+        
+        Parameters
+        ----------
+        connectivity: {'edge', 'vertex', 'face'}, default 'edge'
+            The level of connectivity where a cell is considered adjacent
+        
+        Return
+        ------
+        list of str
+            The list of compass directions for that level of connectivity
         """
         return cls.adjacent_transformations(connectivity).keys()
 
@@ -148,33 +205,8 @@ class Square(Cell):
     n_parameters = 2
     connectivity_types = {'edge', 'vertex'}
 
-    def __init__(self, coord: np.ndarray) -> None:
-        """A Square cell at the given coordinate location
-        :param coord: a sequence with 2 elements, (x,y), where x,y are integers
-        :type coord: np.ndarray or other list-like structure
-        :raise ValueError: if the coord is not in the lattice
-        
-        
-        attributes:
-            dimensions: the number of dimensions ==2
-            n_parameters: the number of parameters ==2
-            connectivity_types: the valid connectivity types =={'edge', 'vertex'}
-            coord: the coordinate of the cell
-            rotation_angle: the angle for discrete rotations ==pi/2
-        methods:
-            adjacents: returns a dictionary of adjacent cells to this cell, given the connectivity
-            adjacent_transformations: returns a dictionary of adjacent cells to an arbitrary cell at the origin
-            valid_coord: returns a bool corresponding to the validity of a coordinate
-            compass: obtain the keys for the adjacents dictionary
-        """
-        super().__init__(coord)
-
     @staticmethod
-    def adjacent_transformations(connectivity: Literal['edge', 'vertex'], *_) -> dict:
-        """Returns a dictionary of transformations for a cell situated at the origin
-        :param connectivity: the connectivity rule for adjacency, either 'edge' or 'vertex' adjacency
-        :return: a dictionary of coordinates which are adjacent to the origin
-        """
+    def adjacent_transformations(connectivity: Literal['edge', 'vertex']) -> dict:
         strict_adjacents = {'N': np.array([0, 1]), 'S': np.array(
             [0, -1]), 'E': np.array([1, 0]), 'W': np.array([-1, 0])}
 
@@ -194,12 +226,6 @@ class Square(Cell):
 
     @classmethod
     def valid_coord(cls, coord: np.ndarray) -> bool:
-        """tests the validity of a coordinate
-        
-        :param coord: a sequence with 2 elements: (x,y)
-        
-        :return: a boolean signifying whether the coordinate exists within the cell lattice
-        """
         if super().valid_coord(coord) is False:
             return False
         return True
@@ -210,43 +236,28 @@ class Tri(Cell):
     n_parameters = 3
     connectivity_types = {'edge', 'vertex'}
 
-    def __init__(self, coord: np.ndarray) -> None:
-        """A triangular cell at the given coordinate location
-
-        :param coord: a sequence with 2 elements, (x,y), where x,y are integers
-        :type coord: np.ndarray or other list-like structure
-        :raise ValueError: if the coord is not in the lattice
-
-        
-        attributes:
-            dimensions: the number of dimensions ==2
-            n_parameters: the number of parameters ==3
-            connectivity_types: the valid connectivity types =={'edge', 'vertex'}
-            coord: the coordinate of the cell
-            rotation_angle: the angle for discrete rotations ==2pi/3
-        methods:
-            adjacents: returns a dictionary of adjacent cells to this cell, given the connectivity
-            adjacent_transformations: returns a dictionary of adjacent cells to an arbitrary cell at the origin
-            valid_coord: returns a bool corresponding to the validity of a coordinate
-            compass: obtain the keys for the adjacents dictionary            
-       """
-        super().__init__(coord)
 
     @classmethod
-    def point_up(cls, coord:np.ndarray=None) -> bool:
-        """check that the cell is an upward facing triangle
+    def point_up(cls, coord:np.ndarray) -> bool:
+        """Decide if the cell is upward_facing
 
-        :param coord: a sequence with 3 elements (x,y,z) where x,y,z are integers
-
-        :return: a boolean representing whether the cell is an upward pointing triangle (true) or not
-
-
-        remark. The coordinate system used for triangular grids can be represented as a face connected 'staircase of cubes'
-        in 3D cartesian space  (with the z axis inverted). If the triangular cell is pointing down then its centroid is on the plane x+y+z=1, 
-        if it is facing up then it is on the plane x+y+z=0
+        Only implemented for triangle cells
+        
+        Parameters
+        ----------
+        coord: np.ndarray
+            The coord to check
+        
+        Returns
+        -------
+        bool
+            returns true if and only if the triangle at this cell is upward facing
+        
+        Raises
+        ------
+        ValueError
+            If the input coordinate is not valid
         """
-        if coord is None:
-            raise ValueError('coord must be specified')
         if not(cls.valid_coord(coord)):
             warnings.warn('Coordinate must exist on the lattice planes')
             return None
@@ -260,17 +271,27 @@ class Tri(Cell):
 
     @classmethod
     def adjacent_transformations(cls, connectivity: Literal['edge', 'vertex'], point_up: bool) -> dict:
-        """The transformations of a cell situated at the origin
-        :param connectivity: the connectivity type of the lattice
-        :param point_up: is true if the cell at the origin points up
-        :return: a dictionary with the adjacent cells
-        :rtype: dict['str', np.ndarray]
+        """Get the translations required to go to neighboring cells
 
+        Parameters
+        ----------
+        connectivity: {'edge', 'vertex'}
+            The level of connectivity required for a cell to be considered adjacent
+        point_up: bool
+            Is the cell an upward facing triangle
+        
+        Returns
+        -------
+        dict of np.ndarrays
+            the translation to the adjacent cell indexed by compass direction
+        
+        Raises
+        ------
+        ValueError
+            if connectivity is not in this class.connectivity_types
         """
-
-
         # the base adjacent transformations vary based on whether or not a cell has a point facing south
-        if isinstance(point_up, np.ndarray):
+        if isinstance(point_up, np.ndarray):    #This allows a coordinate to be inputted
             point_up = cls.point_up(point_up)
         if point_up:
             strict_adjacents = {'NW': np.array(
@@ -301,14 +322,8 @@ class Tri(Cell):
 
     @classmethod
     def valid_coord(cls, coord: np.array) -> bool:
-        """tests that the coordinate is in the lattice
-
-
-        :param coord: a sequence with 3 elements (x,y,z), where x,y,z are integers
-
-        :return: a boolean stating whether the coordinate is valid
-        
-        valid coords must be in the plane x+y+z=0 or x+y+z=1"""
+        """\n\nvalid coords must be in the plane x+y+z=0 or x+y+z=1"""
+        __doc__ == super().valid_coord.__doc__ +__doc__ #append this subclass's conditions to parent documentation
 
         # check that the parameters are of correct shape(inherited from Cell)
         if super().valid_coord(coord) is False:
@@ -320,6 +335,24 @@ class Tri(Cell):
             return False
 
         return True
+    
+    @classmethod
+    def compass(cls, point_up:bool, connectivity='edge')-> list:
+        """The keys which are available for a given connectivity level
+        
+        Parameters
+        ----------
+        point_up: bool
+            If True, get the compass of a north pointing tri, or a south pointing one otherwise
+        connectivity: {'edge', 'vertex', 'face'}, default 'edge'
+            The level of connectivity where a cell is considered adjacent
+        
+        Return
+        ------
+        list of str
+            The list of compass directions for that level of connectivity
+        """
+        return cls.adjacent_transformations(connectivity, point_up).keys()
 
 
 class Hex(Cell):
@@ -327,35 +360,10 @@ class Hex(Cell):
     n_parameters = 3
     connectivity_types = {'edge'}
 
-    def __init__(self, coord: np.array) -> None:
-        """A hexagonal cell at the given location
-        :param coord: a sequence with 2 elements, (x,y), where x,y are integers
-        :type coord: np.ndarray or other list-like structure
-        :raise ValueError: if the coord is not in the lattice
-        attributes:
-            dimensions: the number of dimensions ==2
-            n_parameters: the number of parameters ==3
-            connectivity_types: the valid connectivity types =={'edge'}
-            coord: the coordinate of the cell
-            rotation_angle: the angle for discrete rotations ==pi/3
-        methods:
-            adjacents: returns a dictionary of adjacent cells to this cell, given the connectivity
-            adjacent_transformations: returns a dictionary of adjacent cells to an arbitrary cell at the origin
-            valid_coord: returns a bool corresponding to the validity of a coordinate
-            compass: obtain the keys for the adjacents dictionary     
-        """
-        super().__init__(coord)
-
     @staticmethod
-    # note, because hex only has one configuration setting, there is no need to pass in connectivity
+    
     def adjacent_transformations(*_) -> dict:
-        """The transformations of a cell situated at the origin
-        :param connectivity: the connectivity type of the lattice
-        :param point_up: is true if the cell at the origin points up
-        :return: a dictionary with the adjacent cells
-        :rtype: dict['str', np.ndarray]
-
-        """
+        # note, because hex only has one configuration setting, there is no need to pass in connectivity
         return {
             'N': np.array([0, 1, -1]),
             'NE': np.array([1, 0, -1]),
@@ -367,14 +375,8 @@ class Hex(Cell):
 
     @classmethod
     def valid_coord(cls, coord: np.array) -> bool:
-        """tests that the coordinate is in the lattice
-
-
-        :param coord: a sequence with 3 elements (x,y,z), where x,y,z are integers
-
-        :return: a boolean stating whether the coordinate is valid
-
-        remark. On a hex grid, valid coords must be in the plane x+y+z=0"""
+        """\n\nremark. On a hex grid, valid coords must be in the plane x+y+z=0"""
+        __doc__ == super().valid_coord.__doc__ +__doc__ #append this subclass's conditions to parent documentation
 
         # check that the parameters are of correct shape(inherited from Cell)
         if super().valid_coord(coord) is False:
@@ -393,49 +395,16 @@ class Cube(Cell):
     n_parameters = 3
     connectivity_types = {'face', 'edge', 'vertex'}
 
-    def __init__(self, coord: np.array) -> None:
-        """A cubic cell at the given coordinate
-        :param coord: a sequence with 2 elements, (x,y), where x,y are integers
-        :type coord: np.ndarray or other list-like structure
-        :raise ValueError: if the coord is not in the lattice
-        attributes:
-            dimensions: the number of dimensions ==3
-            n_parameters: the number of parameters ==3
-            connectivity_types: the valid connectivity types =={'edge', 'vertex','face'}
-            coord: the coordinate of the cell
-            rotation_angle: the angle for discrete rotations ==pi/2
-        methods:
-            adjacents: returns a dictionary of adjacent cells to this cell, given the connectivity
-            adjacent_transformations: returns a dictionary of adjacent cells to an arbitrary cell at the origin
-            valid_coord: returns a bool corresponding to the validity of a coordinate
-            compass: obtain the keys for the adjacents dictionary     
-        """
-        super().__init__(coord)
-
     @classmethod
     def valid_coord(cls, coord: np.array) -> bool:
-        """tests that the coordinate is in the lattice
-
-
-        :param coord: a sequence with 3 elements (x,y,z), where x,y,z are integers
-
-        :return: a boolean stating whether the coordinate is valid
-
-        all discrete cartesian coordinates are valid"""
         if super().valid_coord(coord) is False:
             return False
         else:
             return True
 
     @staticmethod
-    def adjacent_transformations(connectivity: Literal['edge', 'vertex','face'], *_) -> dict:
-        """The transformations of a cell situated at the origin
-        :param connectivity: the connectivity type of the lattice
-        :param point_up: is true if the cell at the origin points up
-        :return: a dictionary with the adjacent cells
-        :rtype: dict['str', np.ndarray]
+    def adjacent_transformations(connectivity: Literal['edge', 'vertex','face']) -> dict:
 
-        """
         face_adjacents = {
             'N': np.array([0, 1, 0]),
             'S': np.array([0, -1, 0]),
