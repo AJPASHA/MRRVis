@@ -59,6 +59,7 @@ To get started, import the following::
     from mrrvis.env import Environment
 
 To create a square environment with the default moves and rules and make an action::
+    
     state_0 = [[1,2],[2,2],[2,3],[3,3],[3,2],[3,1]]  # a simple configuration
     env = Environment(state_0, 'Square')   # create env
     env.render()    # visualise the environment
