@@ -39,11 +39,8 @@ Core Features (0.1.0)
 
 Dependancies
 ============
-    - NumPy for matrix representations and scientific computing
-    - Matplotlib for graphing configurations
-    - mpl_toolkits.mplot3D for 3-Dimensional graphing
-
-see `requirements.txt <https://github.com/AJPASHA/mrrvis/blob/main/requirements.txt>`_ for precise requirements
+    - NumPy>=1.21 for matrix representations and scientific computing
+    - Matplotlib>=3.5 for graphing configurations
 
 Installation
 ============
