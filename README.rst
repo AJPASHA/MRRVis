@@ -43,7 +43,7 @@ Dependancies
     - Matplotlib for graphing configurations
     - mpl_toolkits.mplot3D for 3-Dimensional graphing
 
-see requirements.txt for precise requirements
+see `requirements.txt <https://github.com/AJPASHA/mrrvis/blob/main/requirements.txt>`_ for precise requirements
 
 Installation
 ============
@@ -59,7 +59,7 @@ To get started, import the following::
     from mrrvis.env import Environment
 
 To create a square environment with the default moves and rules and make an action::
-    
+
     state_0 = [[1,2],[2,2],[2,3],[3,3],[3,2],[3,1]]  # a simple configuration
     env = Environment(state_0, 'Square')   # create env
     env.render()    # visualise the environment
@@ -76,15 +76,19 @@ For testing, use pytest::
 
 From the root directory of this repository. These tests cover all core functionality of the library. 
 
-* Free software: MIT license
-* Documentation: https://mrrvis.readthedocs.io.
 
+SEE ALSO
+========
+    * `Full Documentation <https://github.com/AJPASHA/mrrvis/blob/main/docs/mrrvis%20docs%200.1.0.pdf>`_
+    * `License <https://github.com/AJPASHA/mrrvis/blob/main/LICENSE>`_
 
 
 Credits
 -------
 This package was created by Alexander Pasha at the University of Liverpool, 
 under the supervision of Othon Michail
+
+
 
 
 This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
