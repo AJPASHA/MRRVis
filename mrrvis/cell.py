@@ -132,7 +132,7 @@ class Cell(ABC):
             else:
                 connectivity = 'edge'
 
-        if self.__class__.__name__ =='Tri':
+        if self.__class__.__name__ =='Tri':     # Tri has a different signature
             base_adjacents = self.adjacent_transformations(
                 connectivity, self.point_up(self.coord))
         else:
@@ -265,9 +265,9 @@ class Tri(Cell):
         x, y, z = coord
 
         if x+y+z == 0:
-            return True
+            return False
 
-        return False
+        return True
 
     @classmethod
     def adjacent_transformations(cls, connectivity: Literal['edge', 'vertex'], point_up: bool) -> dict:
@@ -295,7 +295,7 @@ class Tri(Cell):
             point_up = cls.point_up(point_up)
         if point_up:
             strict_adjacents = {'NW': np.array(
-                [1, 0, 0]), 'NE': np.array([0, 0, 1]), 'S': np.array([0, 1, 0])}
+                [-1, 0, 0]), 'NE': np.array([0, 0, -1]), 'S': np.array([0, -1, 0])}
             if connectivity == 'vertex':
                 weak_adjacents = {
                     'SW': strict_adjacents['S']-strict_adjacents['NE']+strict_adjacents['NW'],
@@ -303,8 +303,8 @@ class Tri(Cell):
                     'N': strict_adjacents['NE']-strict_adjacents['S']+strict_adjacents['NW']
                 }
         else:
-            strict_adjacents = {'N': np.array([0, -1, 0]), 'SE': np.array(
-                [-1, 0, 0]), 'SW': np.array([0, 0, -1])}
+            strict_adjacents = {'N': np.array([0, 1, 0]), 'SE': np.array(
+                [1, 0, 0]), 'SW': np.array([0, 0, 1])}
             if connectivity == 'vertex':
                 weak_adjacents = {
                     'NW': strict_adjacents['N']-strict_adjacents['SE']+strict_adjacents['SW'],

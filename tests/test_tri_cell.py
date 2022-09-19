@@ -12,7 +12,7 @@ def test_init():
     assert cell.n_parameters == 3
     assert cell.dimensions == 2
     assert cell.connectivity_types == {'edge', 'vertex'}
-    assert cell.point_up(cell.coord) == False
+    assert cell.point_up(cell.coord) == True
 
 
 def test_invalid_init():
@@ -25,29 +25,23 @@ def test_invalid_init():
 
 
 def test_point_down():
-    assert Tri.point_up(np.array([10, -4, -5])) == False
-    assert Tri.point_up(np.array([10, -4, -6])) == True
+    assert Tri.point_up(np.array([10, -4, -5])) == True
+    assert Tri.point_up(np.array([10, -4, -6])) == False
 
 
 def test_base_adjacents():
 
     assert compare_np_dicts(
-        Tri.adjacent_transformations('edge', np.array([1, 0, 0])),
-        {'N': np.array([0,-1,0]), 'SW': np.array(
-            [0,0,-1]), 'SE': np.array([-1, 0, 0])}
-    )
-    assert compare_np_dicts(
         Tri.adjacent_transformations('edge', np.array([0, 0, 0])),
-        {'S': np.array([0, 1, 0]), 'NW': np.array([1, 0, 0]),
-         'NE': np.array([0, 0, 1])}
+        {'N': np.array([0,1,0]), 'SW': np.array(
+            [0,0,1]), 'SE': np.array([1, 0, 0])}
     )
-
     assert compare_np_dicts(
-        Tri.adjacent_transformations('vertex', np.array([1, 0, 0])),
-        {'N': np.array([0, -1, 0]), 'SW': np.array([0, 0, -1]), 'SE': np.array([-1, 0, 0]),
-         'S': np.array([-1, 1, -1]), 'NW': np.array([1, -1, -1]), 'NE': np.array([-1, -1, 1])}
-
+        Tri.adjacent_transformations('edge', np.array([0, 1, 0])),
+        {'S': np.array([0, -1, 0]), 'NW': np.array([-1, 0, 0]),
+         'NE': np.array([0, 0, -1])}
     )
+
 
 
 def test_adjacents():
@@ -57,7 +51,7 @@ def test_adjacents():
 
     assert compare_np_dicts(
         cell.adjacent_transformations('edge', np.array([0, 0, 0])),
-        cell.adjacent_transformations('edge', True)
+        cell.adjacent_transformations('edge', False)
     )
 
     check_dict = {k: cell.coord+v for k,
@@ -96,20 +90,20 @@ def test_adjacents():
 
 
 def test___getitem__():
-    cell = Tri(np.array([1, 0, 0]))
+    cell = Tri(np.array([0, 0, 0]))
     print(cell['N'])
-    assert np.all(cell['N'] == np.array([0, -1, 0])+cell.coord)
-    assert np.all(cell['SW'] == np.array([0, 0, -1])+cell.coord)
-    assert np.all(cell['SE'] == np.array([-1, 0, 0])+cell.coord)
-    assert np.all(cell['S'] == np.array([-1, 1, -1])+cell.coord)
-    assert np.all(cell['NW'] == np.array([1, -1, -1])+cell.coord)
-    assert np.all(cell['NE'] == np.array([-1, -1, 1])+cell.coord)
+    assert np.all(cell['N'] == np.array([0, 1, 0])+cell.coord)
+    assert np.all(cell['SW'] == np.array([0, 0, 1])+cell.coord)
+    assert np.all(cell['SE'] == np.array([1, 0, 0])+cell.coord)
+    assert np.all(cell['S'] == np.array([1, -1, 1])+cell.coord)
+    assert np.all(cell['NW'] == np.array([-1, 1, 1])+cell.coord)
+    assert np.all(cell['NE'] == np.array([1, 1, -1])+cell.coord)
 
-    coord = np.array([0, 0, 0])
+    coord = np.array([1, 0, 0])
     cell = Tri(coord)
-    assert np.all(cell['S'] == np.array([0, 1, 0])+coord)
-    assert np.all(cell['NW'] == np.array([1, 0, 0])+coord)
-    assert np.all(cell['NE'] == np.array([0, 0, 1])+coord)
-    assert np.all(cell['N'] == np.array([1, -1, 1])+coord)
-    assert np.all(cell['SW'] == np.array([1, 1, -1])+coord)
-    assert np.all(cell['SE'] == np.array([-1, 1, 1])+coord)
+    assert np.all(cell['S'] == np.array([0, -1, 0])+coord)
+    assert np.all(cell['NW'] == np.array([-1, 0, 0])+coord)
+    assert np.all(cell['NE'] == np.array([0, 0, -1])+coord)
+    assert np.all(cell['N'] == np.array([-1, 1, -1])+coord)
+    assert np.all(cell['SW'] == np.array([-1, -1, 1])+coord)
+    assert np.all(cell['SE'] == np.array([1, -1, -1])+coord)

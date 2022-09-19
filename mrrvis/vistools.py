@@ -71,8 +71,8 @@ def tri_to_cart(vertices: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 
     xt,yt,zt = vertices[:,0], vertices[:,1], vertices[:,2]
 
-    y = -yt*sqrt3  #y in cartesian space is the negative of triangle y, multiplied by sqrt3, the height of a triangle of side_length = 2
-    y = np.array([y[i] + sqrt3/3 if not point_up[i] else y[i] for i in range(len(y))])  # if y points down, then we need to add sqrt3/3 so that the triangles are aligned along their sides
+    y = yt*sqrt3  #y in cartesian space is the negative of triangle y, multiplied by sqrt3, the height of a triangle of side_length = 2
+    y = np.array([y[i] + sqrt3/3 if point_up[i] else y[i] for i in range(len(y))])  # if y points down, then we need to add sqrt3/3 so that the triangles are aligned along their sides
     x = xt-zt # xt and zt are the two diagonal directions, by subtracting the latter from the former, we get the horizontal distance as an integer
     
 
@@ -154,7 +154,7 @@ def tri_patch_generator(vertices:np.ndarray, **style) -> Generator[list, None,No
 
     for i in range(len(vertices)):
         points_up = point_up[i]
-        orientation = 0 if points_up else np.pi #set orientation based on position
+        orientation= np.pi if points_up else 0#set orientation based on position
         h,v = vertices[i]
         
         yield RegularPolygon(
