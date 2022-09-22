@@ -18,8 +18,6 @@ from typing import Iterable, Literal, Union
 from matplotlib.pyplot import connect
 import numpy as np
 import warnings
-
-from sqlalchemy import false
 from mrrvis.cell import Cell, Square, Hex, Tri, Cube
 from mrrvis.geometry_utils import rotate_normal, cube_rotation_list
 
@@ -197,6 +195,7 @@ class ConfigurationGraph:
                 if not visited[i]:
                     visited[i] = True
                     queue.append(i)
+        return False
 
     def is_connected(self, connectivity:Literal['edge', 'vertex','face']=None)->bool:
         """test graph connectivity
