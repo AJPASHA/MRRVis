@@ -47,8 +47,6 @@ Installation
 install with pip:
 pip install git+https://github.com/AJPASHA/mrrvis@main
 
-TODO: upload to pypi, 'pip install mrrvis'
-
 Get Started
 ===========
 To get started, import the following::
